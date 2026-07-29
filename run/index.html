@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CODE Skool in your browser</title>
-<meta name="description" content="Run the CODE Skool course in your browser. Real Python, running on your own machine, nothing sent anywhere.">
+<title>Run a course in your browser</title>
+<meta name="description" content="Run a Skool course in your browser. Real Python, running on your own machine, nothing sent anywhere.">
 <style>
   :root{
     --bg:#171717;
@@ -86,7 +86,7 @@
 <body>
 
 <div class="chrome">
-  <span><a href="/"><span class="host">aifreeware.net</span></a> <span class="dim">/ code-skool</span></span>
+  <span><a href="/"><span class="host">aifreeware.net</span></a> <span class="dim">/ <span id="cname">code-skool</span></span></span>
   <span id="status">booting</span>
 </div>
 
@@ -109,8 +109,20 @@
 </div>
 
 <script>
-const COURSE = 'code-skool';
-const PKG    = 'code_skool';
+const COURSES = {
+  'code-skool': {pkg:'code_skool', title:'CODE Skool', weeks:6,
+                 first:'work/week-01/ex01_variable_explorer.py', home:true, note:''},
+  'py-skool':   {pkg:'py_skool',   title:'PY Skool',   weeks:9,
+                 first:'work/week-01/ex01_command_dispatcher.py', home:true,
+                 note:'Week 9 calls real web APIs, which a browser tab blocks. Download the course for those.'},
+  'ai-skool':   {pkg:'ai_skool',   title:'AI Skool',   weeks:12,
+                 first:'work/week-01/ex01_async_basics.py', home:false,
+                 note:'Week 11 and one week 12 exercise reach the network and the shell. Download the course for those.'}
+};
+const params = new URLSearchParams(location.search);
+const COURSE = COURSES[params.get('c')] ? params.get('c') : 'code-skool';
+const INFO   = COURSES[COURSE];
+const PKG    = INFO.pkg;
 const ROOT   = '/' + COURSE;
 const LSKEY  = 'aifw:' + COURSE + ':work';
 const PYODIDE = 'https://cdn.jsdelivr.net/pyodide/v314.0.3/full/';
@@ -273,8 +285,8 @@ Try this first
   cat START_HERE.md
   python -m ${PKG}
   cat weeks/week-01/README.md
-  edit work/week-01/ex01_variable_explorer.py
-  python work/week-01/ex01_variable_explorer.py
+  edit ${INFO.first}
+  python ${INFO.first}
 `;
 
 async function exec(raw){
@@ -400,7 +412,9 @@ document.addEventListener('mouseup',()=>{
 
 /* ---------- boot ---------- */
 (async function boot(){
-  line('CODE Skool');
+  document.title = INFO.title + ' in your browser';
+  document.getElementById('cname').textContent = COURSE;
+  line(INFO.title);
   line('Real Python, running in this tab. Nothing is sent anywhere.\n','dim');
 
   try{
@@ -432,6 +446,7 @@ document.addEventListener('mouseup',()=>{
     if(restored) line('Restored '+restored+' file'+(restored===1?'':'s')+' you had been working on.','dim');
 
     statusEl.textContent='ready'; statusEl.className='ready';
+    if(INFO.note) line('\n' + INFO.note, 'dim');
     line('\nType help to see what you can do, or cat START_HERE.md to begin.\n','dim');
     setPrompt();
     cmdEl.disabled=false; cmdEl.focus();
