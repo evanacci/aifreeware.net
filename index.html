@@ -131,6 +131,9 @@
   }
   .cmd::before{content:"↓";font-size:1.05em}
   .cmd:hover,.cmd:focus-visible{background:var(--lime);color:var(--bg)}
+  .cmd.run{margin-left:0.6rem;border-color:var(--rule);color:var(--gray)}
+  .cmd.run::before{content:"$"}
+  .cmd.run:hover,.cmd.run:focus-visible{border-color:var(--lime);background:transparent;color:var(--lime)}
 
   /* ---- how it works ---- */
   .steps{margin:0;padding:0;list-style:none;counter-reset:s}
@@ -285,6 +288,7 @@
         <p class="meta"><span class="lvl">start here</span><span>6 weeks</span><span>no experience needed</span></p>
         <p class="covers">Learn to code with Python. Variables, control flow, loops, functions, data structures, and reading and writing files.</p>
         <a class="cmd" href="https://github.com/the9ines/code-skool/archive/refs/heads/main.zip">download code-skool</a>
+        <a class="cmd run" href="/run/">run it in your browser</a>
       </div>
     </article>
 

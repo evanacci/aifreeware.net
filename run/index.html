@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CODE Skool in your browser</title>
+<meta name="description" content="Run the CODE Skool course in your browser. Real Python, running on your own machine, nothing sent anywhere.">
+<style>
+  :root{
+    --bg:#171717;
+    --lime:#e2f79c;
+    --gray:#8a8a8a;
+    --gray-dim:#5a5a5a;
+    --red:#ff8d8d;
+    --pink:rgb(255,141,197);
+    --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace;
+    --rule:rgba(226,247,156,0.14);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;height:100%}
+  body{
+    background:var(--bg);color:var(--gray);
+    font-family:var(--mono);font-size:13.5px;line-height:1.55;
+    -webkit-font-smoothing:antialiased;
+    display:flex;flex-direction:column;height:100dvh;overflow:hidden;
+  }
+
+  .chrome{
+    flex:0 0 auto;
+    border-bottom:1px solid var(--rule);
+    padding:10px 16px;font-size:11.5px;color:var(--gray-dim);
+    letter-spacing:0.06em;display:flex;justify-content:space-between;
+    align-items:center;gap:1rem;
+  }
+  .chrome a{color:var(--gray-dim);text-decoration:none}
+  .chrome a:hover{color:var(--lime)}
+  .chrome .host{color:var(--lime)}
+  #status{color:var(--gray-dim)}
+  #status.ready{color:var(--lime)}
+
+  #screen{
+    flex:1 1 auto;overflow-y:auto;padding:16px;
+    white-space:pre-wrap;word-break:break-word;
+  }
+  #screen .u{color:var(--lime)}          /* echoed user command */
+  #screen .err{color:var(--red)}
+  #screen .dim{color:var(--gray-dim)}
+
+  .line{display:flex;align-items:baseline;padding:0 16px 16px;flex:0 0 auto}
+  .ps1{color:var(--lime);white-space:pre;flex:0 0 auto}
+  #cmd{
+    flex:1 1 auto;background:transparent;border:0;outline:0;
+    color:var(--gray);font:inherit;padding:0 0 0 0.6ch;caret-color:var(--lime);
+  }
+
+  /* editor overlay */
+  #editor{
+    position:fixed;inset:0;background:var(--bg);z-index:20;
+    display:none;flex-direction:column;
+  }
+  #editor.open{display:flex}
+  #edbar{
+    padding:10px 16px;border-bottom:1px solid var(--rule);
+    display:flex;justify-content:space-between;align-items:center;gap:1rem;
+    font-size:11.5px;letter-spacing:0.05em;color:var(--gray-dim);
+  }
+  #edpath{color:var(--lime)}
+  #edtext{
+    flex:1;background:transparent;border:0;outline:0;resize:none;
+    color:var(--gray);font:inherit;line-height:1.6;padding:16px;
+    tab-size:4;caret-color:var(--lime);
+  }
+  .btn{
+    background:transparent;border:1px solid var(--lime);color:var(--lime);
+    font:inherit;font-size:11.5px;letter-spacing:0.05em;
+    padding:0.4em 0.9em;cursor:pointer;
+  }
+  .btn:hover{background:var(--lime);color:var(--bg)}
+  .btn.ghost{border-color:var(--rule);color:var(--gray-dim)}
+  .btn.ghost:hover{background:transparent;color:var(--gray);border-color:var(--gray-dim)}
+
+  a:focus-visible,.btn:focus-visible{outline:2px solid var(--lime);outline-offset:2px}
+  ::selection{background:var(--lime);color:var(--bg)}
+</style>
+</head>
+<body>
+
+<div class="chrome">
+  <span><a href="/"><span class="host">aifreeware.net</span></a> <span class="dim">/ code-skool</span></span>
+  <span id="status">booting</span>
+</div>
+
+<div id="screen"></div>
+
+<form class="line" id="form" autocomplete="off">
+  <span class="ps1" id="ps1">$ </span>
+  <input id="cmd" name="cmd" spellcheck="false" autocapitalize="off" autocorrect="off" disabled>
+</form>
+
+<div id="editor">
+  <div id="edbar">
+    <span>editing <span id="edpath"></span></span>
+    <span>
+      <button class="btn" id="edsave" type="button">save and close</button>
+      <button class="btn ghost" id="edcancel" type="button">cancel</button>
+    </span>
+  </div>
+  <textarea id="edtext" spellcheck="false"></textarea>
+</div>
+
+<script>
+const COURSE = 'code-skool';
+const PKG    = 'code_skool';
+const ROOT   = '/' + COURSE;
+const LSKEY  = 'aifw:' + COURSE + ':work';
+const PYODIDE = 'https://cdn.jsdelivr.net/pyodide/v314.0.3/full/';
+
+const screenEl = document.getElementById('screen');
+const cmdEl    = document.getElementById('cmd');
+const ps1El    = document.getElementById('ps1');
+const statusEl = document.getElementById('status');
+let py = null, cwd = ROOT, history = [], hpos = 0;
+
+/* ---------- output ---------- */
+const ANSI = {30:'#171717',31:'#ff8d8d',32:'#b8e986',33:'#e2f79c',34:'#8ab4f8',
+              35:'#ff8dc5',36:'#8de3f7',37:'#d8d8d8',90:'#5a5a5a',91:'#ff8d8d',
+              92:'#b8e986',93:'#e2f79c',94:'#8ab4f8',95:'#ff8dc5',96:'#8de3f7',97:'#f2f2f2'};
+
+function esc(s){return s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}
+
+/* Convert the ANSI the course actually emits into spans. */
+function ansiToHtml(text){
+  if(text.indexOf('[2J')>-1){ screenEl.innerHTML=''; }
+  text = text.replace(/\[2J/g,'').replace(/\[H/g,'');
+  let out='', open=0, i=0;
+  const re=/\[([0-9;]*)m/g; let m, last=0;
+  while((m=re.exec(text))!==null){
+    out += esc(text.slice(last, m.index));
+    last = re.lastIndex;
+    const codes = m[1].split(';').filter(Boolean).map(Number);
+    if(codes.length===0 || codes.includes(0)){
+      while(open>0){ out+='</span>'; open--; }
+      continue;
+    }
+    let style='';
+    for(const c of codes){
+      if(c===1) style+='font-weight:700;';
+      else if(ANSI[c]) style+='color:'+ANSI[c]+';';
+    }
+    if(style){ out+='<span style="'+style+'">'; open++; }
+  }
+  out += esc(text.slice(last));
+  while(open>0){ out+='</span>'; open--; }
+  return out;
+}
+
+function write(text, cls){
+  const span=document.createElement('span');
+  if(cls) span.className=cls;
+  span.innerHTML = ansiToHtml(text);
+  screenEl.appendChild(span);
+  screenEl.scrollTop = screenEl.scrollHeight;
+}
+const line = (t,c)=>write((t??'')+'\n',c);
+
+/* ---------- virtual filesystem helpers ---------- */
+const norm = p => {
+  const abs = p.startsWith('/') ? p : cwd + '/' + p;
+  const parts=[];
+  for(const seg of abs.split('/')){
+    if(!seg || seg==='.') continue;
+    if(seg==='..') parts.pop(); else parts.push(seg);
+  }
+  return '/'+parts.join('/');
+};
+const isDir = p => { try{ return py.FS.isDir(py.FS.stat(p).mode); }catch{ return false; } };
+const isFile = p => { try{ return py.FS.isFile(py.FS.stat(p).mode); }catch{ return false; } };
+const rel = p => p===ROOT ? '~' : p.startsWith(ROOT+'/') ? '~/'+p.slice(ROOT.length+1) : p;
+
+function setPrompt(){ ps1El.textContent = rel(cwd) + ' $ '; }
+
+/* ---------- persistence: only the student's own work/ files ---------- */
+function saveWork(){
+  const store={};
+  (function walk(dir){
+    let names=[]; try{ names=py.FS.readdir(dir); }catch{ return; }
+    for(const n of names){
+      if(n==='.'||n==='..') continue;
+      const full=dir+'/'+n;
+      if(isDir(full)) walk(full);
+      else if(isFile(full)){
+        try{ store[full.slice(ROOT.length+1)] = py.FS.readFile(full,{encoding:'utf8'}); }catch{}
+      }
+    }
+  })(ROOT+'/work');
+  try{ localStorage.setItem(LSKEY, JSON.stringify(store)); }catch(e){
+    line('Could not save your work: '+e.message,'err');
+  }
+}
+function loadWork(){
+  let store={}; try{ store=JSON.parse(localStorage.getItem(LSKEY)||'{}'); }catch{}
+  let n=0;
+  for(const [p,content] of Object.entries(store)){
+    const full=ROOT+'/'+p;
+    try{ py.FS.writeFile(full, content); n++; }catch{}
+  }
+  return n;
+}
+
+/* ---------- python execution ---------- */
+async function runPy(code){
+  try{ await py.runPythonAsync(code); }
+  catch(e){
+    const msg=String(e.message||e);
+    // a clean SystemExit is how the course signals a bad week number
+    const m=msg.match(/SystemExit:\s*(\d+)/);
+    if(m) return Number(m[1]);
+    if(/EOFError/.test(msg)){
+      line('This program asks you a question with input(), and the browser '
+         + 'terminal cannot type answers back yet.','err');
+      line('Download the course from aifreeware.net to run this one. Everything '
+         + 'that does not use input() works here.','dim');
+      return 1;
+    }
+    line(msg.split('\n').slice(-14).join('\n').trim(),'err');
+    return 1;
+  }
+  return 0;
+}
+
+const PYPRELUDE = `
+import sys, os, runpy, traceback
+sys.path.insert(0, '${ROOT}/code/src')
+os.chdir('${ROOT}')
+
+def _aifw_run_module(mod, argv):
+    sys.argv = [mod] + argv
+    try:
+        runpy.run_module(mod, run_name='__main__', alter_sys=True)
+    except SystemExit as e:
+        code = e.code
+        if isinstance(code, str):
+            print(code)
+            raise SystemExit(1)
+        raise SystemExit(int(code or 0))
+
+def _aifw_run_path(path, argv):
+    sys.argv = [path] + argv
+    try:
+        runpy.run_path(path, run_name='__main__')
+    except SystemExit as e:
+        raise SystemExit(int(e.code or 0)) if not isinstance(e.code, str) else SystemExit(1)
+`;
+
+/* ---------- commands ---------- */
+const HELP = `
+Commands
+
+  ls [path]           list files here
+  cd <path>           change folder
+  pwd                 where am I
+  cat <file>          read a file
+  edit <file>         open a file, write your code, save
+  python <file>       run a python file
+  python -m ${PKG} [args]
+                      open the course, or a week
+  clear               clear the screen
+  reset               throw away your saved work and start fresh
+  help                this
+
+Try this first
+
+  cat START_HERE.md
+  python -m ${PKG}
+  cat weeks/week-01/README.md
+  edit work/week-01/ex01_variable_explorer.py
+  python work/week-01/ex01_variable_explorer.py
+`;
+
+async function exec(raw){
+  const argv = raw.trim().split(/\s+/).filter(Boolean);
+  if(!argv.length) return;
+  const [cmd, ...rest] = argv;
+
+  switch(cmd){
+    case 'help': line(HELP); return;
+    case 'clear': screenEl.innerHTML=''; return;
+    case 'pwd': line(rel(cwd)); return;
+
+    case 'ls': {
+      const target = norm(rest[0] || '.');
+      if(!isDir(target)) return line(isFile(target) ? rel(target) : 'ls: no such folder: '+(rest[0]||'.'), isFile(target)?null:'err');
+      const names = py.FS.readdir(target).filter(n=>n!=='.'&&n!=='..').sort();
+      const dirs = names.filter(n=>isDir(target+'/'+n)).map(n=>n+'/');
+      const files = names.filter(n=>!isDir(target+'/'+n));
+      line([...dirs, ...files].join('   '));
+      return;
+    }
+
+    case 'cd': {
+      if(!rest[0]) { cwd = ROOT; setPrompt(); return; }
+      const target = norm(rest[0]);
+      if(!isDir(target)) return line('cd: no such folder: '+rest[0],'err');
+      cwd = target; setPrompt(); return;
+    }
+
+    case 'cat': {
+      if(!rest[0]) return line('cat: which file?','err');
+      const target = norm(rest[0]);
+      if(!isFile(target)) return line('cat: no such file: '+rest[0],'err');
+      line(py.FS.readFile(target,{encoding:'utf8'}));
+      return;
+    }
+
+    case 'edit': {
+      if(!rest[0]) return line('edit: which file?','err');
+      const target = norm(rest[0]);
+      if(!isFile(target)) return line('edit: no such file: '+rest[0],'err');
+      openEditor(target);
+      return;
+    }
+
+    case 'reset': {
+      localStorage.removeItem(LSKEY);
+      line('Saved work cleared. Reload the page to start fresh.','dim');
+      return;
+    }
+
+    case 'python': case 'python3': {
+      if(!rest.length) return line('This terminal cannot run the interactive prompt yet. Try: python -m '+PKG,'err');
+      if(rest[0]==='-m'){
+        const mod = rest[1];
+        if(!mod) return line('python: -m needs a module name','err');
+        const args = JSON.stringify(rest.slice(2));
+        await runPy(`_aifw_run_module(${JSON.stringify(mod)}, ${args})`);
+        return;
+      }
+      const target = norm(rest[0]);
+      if(!isFile(target)) return line('python: no such file: '+rest[0],'err');
+      const args = JSON.stringify(rest.slice(1));
+      await runPy(`_aifw_run_path(${JSON.stringify(target)}, ${args})`);
+      return;
+    }
+
+    default:
+      line(cmd+': not a command here. Type help.','err');
+  }
+}
+
+/* ---------- editor ---------- */
+const edEl=document.getElementById('editor'), edText=document.getElementById('edtext'),
+      edPath=document.getElementById('edpath');
+let editing=null;
+function openEditor(path){
+  editing=path;
+  edPath.textContent=rel(path);
+  edText.value=py.FS.readFile(path,{encoding:'utf8'});
+  edEl.classList.add('open');
+  edText.focus();
+}
+function closeEditor(save){
+  if(save && editing){
+    py.FS.writeFile(editing, edText.value);
+    if(editing.startsWith(ROOT+'/work')) saveWork();
+    line('saved '+rel(editing),'dim');
+  }
+  editing=null; edEl.classList.remove('open'); cmdEl.focus();
+}
+document.getElementById('edsave').onclick=()=>closeEditor(true);
+document.getElementById('edcancel').onclick=()=>closeEditor(false);
+edText.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){ e.preventDefault(); closeEditor(false); }
+  if((e.metaKey||e.ctrlKey)&&e.key==='s'){ e.preventDefault(); closeEditor(true); }
+  if(e.key==='Tab'){
+    e.preventDefault();
+    const s=edText.selectionStart, en=edText.selectionEnd;
+    edText.value=edText.value.slice(0,s)+'    '+edText.value.slice(en);
+    edText.selectionStart=edText.selectionEnd=s+4;
+  }
+});
+
+/* ---------- input ---------- */
+document.getElementById('form').addEventListener('submit', async e=>{
+  e.preventDefault();
+  const raw=cmdEl.value;
+  cmdEl.value='';
+  write(ps1El.textContent); line(raw,'u');
+  if(raw.trim()){ history.push(raw); hpos=history.length; }
+  cmdEl.disabled=true;
+  try{ await exec(raw); } finally { cmdEl.disabled=false; cmdEl.focus(); }
+  screenEl.scrollTop=screenEl.scrollHeight;
+});
+cmdEl.addEventListener('keydown',e=>{
+  if(e.key==='ArrowUp'){ e.preventDefault(); if(hpos>0){ hpos--; cmdEl.value=history[hpos]; } }
+  if(e.key==='ArrowDown'){ e.preventDefault(); if(hpos<history.length-1){ hpos++; cmdEl.value=history[hpos]; } else { hpos=history.length; cmdEl.value=''; } }
+});
+document.addEventListener('mouseup',()=>{
+  if(!edEl.classList.contains('open') && !window.getSelection().toString()) cmdEl.focus();
+});
+
+/* ---------- boot ---------- */
+(async function boot(){
+  line('CODE Skool');
+  line('Real Python, running in this tab. Nothing is sent anywhere.\n','dim');
+
+  try{
+    write('Loading Python ');
+    const s=document.createElement('script'); s.src=PYODIDE+'pyodide.js';
+    await new Promise((res,rej)=>{ s.onload=res; s.onerror=()=>rej(new Error('could not reach the Pyodide CDN')); document.head.appendChild(s); });
+    py = await loadPyodide({ indexURL: PYODIDE });
+    py.setStdout({ batched: t=>write(t+'\n') });
+    py.setStderr({ batched: t=>write(t+'\n','err') });
+    // No blocking stdin in a browser tab. Return EOF rather than opening a
+    // modal, and turn the resulting EOFError into a plain-English message.
+    py.setStdin({ stdin: () => null });
+    line('ok','dim');
+
+    write('Loading the course ');
+    const res = await fetch('./'+COURSE+'.json');
+    if(!res.ok) throw new Error('could not load the course files ('+res.status+')');
+    const bundle = await res.json();
+    py.FS.mkdirTree(ROOT);
+    for(const [p, content] of Object.entries(bundle.files)){
+      const full=ROOT+'/'+p, dir=full.slice(0, full.lastIndexOf('/'));
+      py.FS.mkdirTree(dir);
+      py.FS.writeFile(full, content);
+    }
+    line('ok, '+Object.keys(bundle.files).length+' files','dim');
+
+    await py.runPythonAsync(PYPRELUDE);
+    const restored = loadWork();
+    if(restored) line('Restored '+restored+' file'+(restored===1?'':'s')+' you had been working on.','dim');
+
+    statusEl.textContent='ready'; statusEl.className='ready';
+    line('\nType help to see what you can do, or cat START_HERE.md to begin.\n','dim');
+    setPrompt();
+    cmdEl.disabled=false; cmdEl.focus();
+  }catch(e){
+    statusEl.textContent='failed';
+    line('\n'+e.message,'err');
+    line('You can still download the course and run it locally from aifreeware.net.','dim');
+  }
+})();
+</script>
+</body>
+</html>
