@@ -57,9 +57,12 @@
     margin:0;
     color:var(--lime);
     white-space:pre;
+    /* size is set to whole pixels by fitArt() so the block glyphs tile without seams */
     font-size:min(calc(min(90vw, 880px) / (var(--cols) * 0.62)), var(--cap, 18px));
     overflow-x:auto;
     overflow-y:hidden;
+    text-rendering:geometricPrecision;
+    -webkit-font-smoothing:antialiased;
   }
   pre.art .row{display:block}
 
@@ -376,6 +379,51 @@
 <script>
   // Split each art block into rows and dim the ANSI Shadow bevel glyphs,
   // so the solid blocks read bright and the shadow reads as depth.
+  // Block-drawing glyphs only tile seamlessly when both the character advance
+  // and the line box land on whole pixels. Measure the real advance for
+  // whatever mono the visitor actually has, then pick an integer size.
+  function fitArt() {
+    document.querySelectorAll('pre.art').forEach(function (pre) {
+      var cols = parseFloat(getComputedStyle(pre).getPropertyValue('--cols'));
+      var cap = parseFloat(getComputedStyle(pre).getPropertyValue('--cap')) || 18;
+      if (!cols) return;
+
+      var probe = document.createElement('span');
+      probe.style.cssText = 'position:absolute;visibility:hidden;white-space:pre;font:inherit;font-size:100px';
+      probe.textContent = '█'.repeat(10);
+      pre.appendChild(probe);
+      var advance = probe.getBoundingClientRect().width / 10 / 100; // per px of font-size
+      pre.removeChild(probe);
+      if (!advance) return;
+
+      var avail = pre.parentElement.getBoundingClientRect().width || pre.getBoundingClientRect().width;
+      // Overlap slightly rather than trying to make cells meet exactly.
+      // Sub-pixel rounding will always leave a hairline otherwise, and the
+      // blocks are a single flat colour so overlap is invisible.
+      var OVERLAP = 0.5;
+      var size = Math.floor(Math.min((avail + cols * OVERLAP) / (cols * advance), cap));
+      if (size < 4) size = 4;
+
+      // Measure the ink height of a full block and set the line box to it,
+      // so rows meet exactly rather than leaving a gap between them.
+      var lh = size;
+      try {
+        var cvs = fitArt._c || (fitArt._c = document.createElement('canvas'));
+        var ctx = cvs.getContext('2d');
+        ctx.font = size + 'px ' + getComputedStyle(pre).fontFamily;
+        var m = ctx.measureText('█');
+        if (m.actualBoundingBoxAscent != null) {
+          var ink = m.actualBoundingBoxAscent + m.actualBoundingBoxDescent;
+          if (ink > 0) lh = Math.floor(ink) - 1;   // pull rows together
+        }
+      } catch (e) {}
+
+      pre.style.fontSize = size + 'px';
+      pre.style.lineHeight = lh + 'px';
+      pre.style.letterSpacing = (-OVERLAP) + 'px';
+    });
+  }
+
   (function () {
     document.querySelectorAll('pre.art').forEach(function (pre) {
       var lines = pre.textContent.replace(/^\n/, '').split('\n');
@@ -387,6 +435,9 @@
         pre.appendChild(row);
       });
     });
+    fitArt();
+    var t; addEventListener('resize', function () { clearTimeout(t); t = setTimeout(fitArt, 120); });
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitArt);
   })();
 </script>
 
