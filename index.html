@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>aifreeware.net</title>
+<meta name="description" content="Free software, built and given away. Courses, tools, and systems that run entirely on your own machine. No API keys, no signup, no server.">
+<style>
+  :root{
+    --bg:#171717;
+    --lime:#e2f79c;
+    --gray:#8a8a8a;
+    --gray-dim:#5a5a5a;
+    --pink:rgb(255,141,197);
+    --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace;
+    --rule:rgba(226,247,156,0.14);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg);
+    color:var(--gray);
+    font-family:var(--mono);
+    font-size:15px;
+    line-height:1.7;
+    -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
+  }
+  .wrap{max-width:960px;margin:0 auto;padding:0 5vw}
+
+  /* ---- terminal chrome ---- */
+  .chrome{
+    border-bottom:1px solid var(--rule);
+    padding:14px 0;
+    font-size:12px;
+    color:var(--gray-dim);
+    letter-spacing:0.06em;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+  }
+  .chrome .host{color:var(--lime)}
+  .cursor{
+    display:inline-block;
+    width:0.55em;height:1.05em;
+    background:var(--lime);
+    vertical-align:-0.18em;
+    margin-left:0.35em;
+    animation:blink 1.1s step-end infinite;
+  }
+  @keyframes blink{50%{opacity:0}}
+
+  /* ---- ascii art ---- */
+  pre.art{
+    font-family:var(--mono);
+    line-height:1;
+    margin:0;
+    color:var(--lime);
+    white-space:pre;
+    font-size:min(calc(min(90vw, 880px) / (var(--cols) * 0.62)), var(--cap, 18px));
+    overflow-x:auto;
+    overflow-y:hidden;
+  }
+  pre.art .row{display:block}
+
+  /* ---- hero ---- */
+  .hero{padding:11vh 0 9vh;text-align:center}
+  .hero .lockup{display:inline-flex;flex-direction:column;align-items:center}
+  .hero .sub{
+    margin-top:2.4rem;
+    color:var(--gray);
+    font-size:clamp(13px,2.6vw,17px);
+    letter-spacing:0.01em;
+  }
+  .tagline{
+    margin-top:1.1rem;
+    font-size:clamp(12px,2.4vw,16px);
+    color:var(--lime);
+    letter-spacing:0.02em;
+  }
+  .tagline .hl{
+    background:var(--lime);
+    color:var(--bg);
+    padding:0.12em 0.34em;
+  }
+
+  /* ---- section prompts ---- */
+  .prompt{
+    margin:0 0 2.4rem;
+    font-size:13px;
+    color:var(--gray-dim);
+    letter-spacing:0.04em;
+  }
+  .prompt::before{content:"$ ";color:var(--lime)}
+  .prompt em{font-style:normal;color:var(--gray)}
+
+  section{padding:7vh 0;border-top:1px solid var(--rule)}
+
+  /* ---- course rows ---- */
+  .course{
+    display:grid;
+    grid-template-columns:1fr;
+    gap:1.4rem;
+    padding:2.6rem 0;
+    border-bottom:1px dashed rgba(226,247,156,0.10);
+  }
+  .course:last-of-type{border-bottom:0}
+  .course .meta{
+    display:flex;flex-wrap:wrap;gap:0.6rem 1.4rem;
+    font-size:12px;color:var(--gray-dim);letter-spacing:0.05em;
+  }
+  .course .meta .lvl{color:var(--lime)}
+  .course h2{
+    position:absolute;width:1px;height:1px;
+    margin:-1px;padding:0;overflow:hidden;
+    clip-path:inset(50%);white-space:nowrap;
+  }
+  .course .banner pre.art{overflow:visible}
+  .course .covers{
+    margin:0;color:var(--gray);font-size:13.5px;max-width:62ch;
+  }
+  .cmd{
+    display:inline-flex;align-items:center;gap:0.6em;
+    margin-top:0.4rem;
+    padding:0.62em 1.05em;
+    border:1px solid var(--lime);
+    color:var(--lime);
+    text-decoration:none;
+    font-size:13px;letter-spacing:0.04em;
+    transition:background 0.18s ease,color 0.18s ease;
+  }
+  .cmd::before{content:"↓";font-size:1.05em}
+  .cmd:hover,.cmd:focus-visible{background:var(--lime);color:var(--bg)}
+
+  /* ---- how it works ---- */
+  .steps{margin:0;padding:0;list-style:none;counter-reset:s}
+  .steps li{
+    counter-increment:s;
+    padding:0.55rem 0 0.55rem 3.2rem;
+    position:relative;
+    font-size:13.5px;
+    max-width:60ch;
+  }
+  .steps li::before{
+    content:counter(s,decimal-leading-zero);
+    position:absolute;left:0;top:0.55rem;
+    color:var(--lime);
+    font-size:12px;
+    letter-spacing:0.08em;
+  }
+  .steps code{
+    color:var(--lime);
+    background:rgba(226,247,156,0.08);
+    padding:0.1em 0.42em;
+  }
+  /* ---- pending items ---- */
+  .pending{margin:0;padding:0;list-style:none}
+  .pending li{
+    display:grid;gap:0.2rem 1.6rem;
+    padding:1.1rem 0;
+    border-bottom:1px dashed rgba(226,247,156,0.10);
+  }
+  .pending li:last-child{border-bottom:0}
+  .pname{
+    color:var(--lime);font-size:13px;letter-spacing:0.04em;
+    opacity:0.55;
+  }
+  .pname::after{
+    content:"not released yet";
+    color:var(--gray-dim);
+    margin-left:1.1em;
+    letter-spacing:0.05em;
+    font-size:11px;
+  }
+  .pdesc{color:var(--gray-dim);font-size:13px;max-width:62ch}
+  @media (min-width:720px){
+    .pending li{grid-template-columns:22rem 1fr;align-items:baseline}
+  }
+
+  .note{margin-top:2.2rem;font-size:12.5px;color:var(--gray-dim);max-width:60ch}
+  .note a{color:var(--gray);text-decoration:underline;text-underline-offset:3px}
+  .note a:hover{color:var(--lime)}
+
+  /* ---- footer + insignia ---- */
+  footer{
+    position:relative;
+    height:9rem;
+    border-top:1px solid var(--rule);
+  }
+  .insignia{
+    position:absolute;
+    bottom:2rem;
+    left:50%;
+    transform:translateX(-50%);
+    font-family:'JetBrains Mono',ui-monospace,monospace;
+    font-size:9px;
+    letter-spacing:0.05em;
+    color:rgba(255,255,255,0.2);
+    white-space:nowrap;
+  }
+  .insignia a{
+    color:inherit;
+    text-decoration:none;
+    transition:color 0.4s ease;
+  }
+  .insignia a:hover{color:var(--pink)}
+
+  /* ---- load reveal ---- */
+  @media (prefers-reduced-motion:no-preference){
+    .reveal .row{opacity:0;animation:draw 0.34s ease forwards}
+    .reveal .row:nth-child(1){animation-delay:0.05s}
+    .reveal .row:nth-child(2){animation-delay:0.11s}
+    .reveal .row:nth-child(3){animation-delay:0.17s}
+    .reveal .row:nth-child(4){animation-delay:0.23s}
+    .reveal .row:nth-child(5){animation-delay:0.29s}
+    .reveal .row:nth-child(6){animation-delay:0.35s}
+    .reveal.b .row:nth-child(1){animation-delay:0.41s}
+    .reveal.b .row:nth-child(2){animation-delay:0.47s}
+    .reveal.b .row:nth-child(3){animation-delay:0.53s}
+    .reveal.b .row:nth-child(4){animation-delay:0.59s}
+    .reveal.b .row:nth-child(5){animation-delay:0.65s}
+    .reveal.b .row:nth-child(6){animation-delay:0.71s}
+    .fade{opacity:0;animation:draw 0.5s ease 0.82s forwards}
+  }
+  @keyframes draw{from{opacity:0}to{opacity:1}}
+
+  a:focus-visible,.cmd:focus-visible{outline:2px solid var(--lime);outline-offset:3px}
+
+  @media (min-width:720px){
+    .course{grid-template-columns:auto 1fr;gap:2.6rem;align-items:center}
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <div class="chrome">
+    <span><span class="host">aifreeware.net</span><span class="cursor"></span></span>
+    <span>free / offline / open source</span>
+  </div>
+
+  <header class="hero">
+    <div class="lockup">
+      <pre class="art reveal" style="--cols:11;--cap:23px" aria-label="AI">
+ █████╗ ██╗
+██╔══██╗██║
+███████║██║
+██╔══██║██║
+██║  ██║██║
+╚═╝  ╚═╝╚═╝</pre>
+      <pre class="art reveal b" style="--cols:66;--cap:23px" aria-label="FREEWARE">
+███████╗██████╗ ███████╗███████╗██╗    ██╗ █████╗ ██████╗ ███████╗
+██╔════╝██╔══██╗██╔════╝██╔════╝██║    ██║██╔══██╗██╔══██╗██╔════╝
+█████╗  ██████╔╝█████╗  █████╗  ██║ █╗ ██║███████║██████╔╝█████╗
+██╔══╝  ██╔══██╗██╔══╝  ██╔══╝  ██║███╗██║██╔══██║██╔══██╗██╔══╝
+██║     ██║  ██║███████╗███████╗╚███╔███╔╝██║  ██║██║  ██║███████╗
+╚═╝     ╚═╝  ╚═╝╚══════╝╚══════╝ ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝</pre>
+    </div>
+    <p class="sub fade">Software I built and gave away. Free to download, free to keep.</p>
+    <p class="tagline fade"><span class="hl">Everything</span> runs on <span class="hl">your own machine.</span></p>
+  </header>
+
+  <section>
+    <p class="prompt"><em>ls courses/</em></p>
+
+    <article class="course">
+      <div class="banner">
+        <pre class="art" style="--cols:40;--cap:13px" aria-hidden="true">
+     ██████╗ ██████╗ ██████╗ ███████╗
+    ██╔════╝██╔═══██╗██╔══██╗██╔════╝
+    ██║     ██║   ██║██║  ██║█████╗
+    ██║     ██║   ██║██║  ██║██╔══╝
+    ╚██████╗╚██████╔╝██████╔╝███████╗
+     ╚═════╝ ╚═════╝ ╚═════╝ ╚══════╝
+    ███████╗██╗  ██╗ ██████╗  ██████╗ ██╗
+    ██╔════╝██║ ██╔╝██╔═══██╗██╔═══██╗██║
+    ███████╗█████╔╝ ██║   ██║██║   ██║██║
+    ╚════██║██╔═██╗ ██║   ██║██║   ██║██║
+    ███████║██║  ██╗╚██████╔╝╚██████╔╝███████╗
+    ╚══════╝╚═╝  ╚═╝ ╚═════╝  ╚═════╝ ╚══════╝</pre>
+      </div>
+      <div>
+        <h2>CODE Skool</h2>
+        <p class="meta"><span class="lvl">start here</span><span>6 weeks</span><span>no experience needed</span></p>
+        <p class="covers">Learn to code with Python. Variables, control flow, loops, functions, data structures, and reading and writing files.</p>
+        <a class="cmd" href="https://github.com/the9ines/code-skool/archive/refs/heads/main.zip">download code-skool</a>
+      </div>
+    </article>
+
+    <article class="course">
+      <div class="banner">
+        <pre class="art" style="--cols:40;--cap:13px" aria-hidden="true">
+            ██████╗ ██╗   ██╗
+            ██╔══██╗╚██╗ ██╔╝
+            ██████╔╝ ╚████╔╝
+            ██╔═══╝   ╚██╔╝
+            ██║        ██║
+            ╚═╝        ╚═╝
+    ███████╗██╗  ██╗ ██████╗  ██████╗ ██╗
+    ██╔════╝██║ ██╔╝██╔═══██╗██╔═══██╗██║
+    ███████╗█████╔╝ ██║   ██║██║   ██║██║
+    ╚════██║██╔═██╗ ██║   ██║██║   ██║██║
+    ███████║██║  ██╗╚██████╔╝╚██████╔╝███████╗
+    ╚══════╝╚═╝  ╚═╝ ╚═════╝  ╚═════╝ ╚══════╝</pre>
+      </div>
+      <div>
+        <h2>PY Skool</h2>
+        <p class="meta"><span class="lvl">next</span><span>9 weeks</span><span>after CODE Skool</span></p>
+        <p class="covers">The Python you need before building agents. Closures, generators, classes, decorators, type hints, async and await, text processing, CLI tools, and testing.</p>
+        <a class="cmd" href="https://github.com/the9ines/py-skool/archive/refs/heads/main.zip">download py-skool</a>
+      </div>
+    </article>
+
+    <article class="course">
+      <div class="banner">
+        <pre class="art" style="--cols:40;--cap:13px" aria-hidden="true">
+                   █████╗ ██╗
+                  ██╔══██╗██║
+                  ███████║██║
+                  ██╔══██║██║
+                  ██║  ██║██║
+                  ╚═╝  ╚═╝╚═╝
+    ███████╗██╗  ██╗ ██████╗  ██████╗ ██╗
+    ██╔════╝██║ ██╔╝██╔═══██╗██╔═══██╗██║
+    ███████╗█████╔╝ ██║   ██║██║   ██║██║
+    ╚════██║██╔═██╗ ██║   ██║██║   ██║██║
+    ███████║██║  ██╗╚██████╔╝╚██████╔╝███████╗
+    ╚══════╝╚═╝  ╚═╝ ╚═════╝  ╚═════╝ ╚══════╝</pre>
+      </div>
+      <div>
+        <h2>AI Skool</h2>
+        <p class="meta"><span class="lvl">then</span><span>12 weeks</span><span>after PY Skool</span></p>
+        <p class="covers">Build agentic systems with Python as the control plane. Agent loops, tool calling, schema validation, state machines, memory and retrieval, budgets, observability, and safety.</p>
+        <a class="cmd" href="https://github.com/the9ines/ai-skool/archive/refs/heads/main.zip">download ai-skool</a>
+      </div>
+    </article>
+  </section>
+
+  <section>
+    <p class="prompt"><em>ls --pending</em></p>
+    <ul class="pending">
+      <li>
+        <span class="pname">identity-os</span>
+        <span class="pdesc">A system for deliberately rebuilding how you operate. Structure, templates, and the capture pipeline behind it.</span>
+      </li>
+      <li>
+        <span class="pname">moving-cost-calculator</span>
+        <span class="pdesc">A white label platform for moving companies. Quote wizard, job applications, admin dashboard, and a pricing engine.</span>
+      </li>
+    </ul>
+    <p class="note">These are built and running, but not released yet. Both started as real work with real data in them, so each gets stripped back to the part that is actually reusable before it goes out. That takes as long as it takes.</p>
+  </section>
+
+  <section>
+    <p class="prompt"><em>cat how-it-works.txt</em></p>
+    <ol class="steps">
+      <li>Download the course and unzip it anywhere you like.</li>
+      <li>On Mac, double click <code>install-mac.command</code>. On Windows, double click <code>install-windows.bat</code>.</li>
+      <li>The installer checks your Python version, builds a local environment, and installs what the course needs.</li>
+      <li>Open the first week with <code>python -m code_skool week 1</code>, swapping in <code>py_skool</code> or <code>ai_skool</code> for the course you picked.</li>
+    </ol>
+    <p class="note">You need Python 3.11 or newer from <a href="https://www.python.org/downloads/">python.org</a>. Nothing else. There are no API keys to buy, no accounts to make, and nothing phones home. Once the files are on your machine the whole course works offline.</p>
+  </section>
+
+</div>
+
+<footer>
+  <p class="insignia">by <a href="https://the9ines.com">the9ines</a></p>
+</footer>
+
+<script>
+  // Split each art block into rows and dim the ANSI Shadow bevel glyphs,
+  // so the solid blocks read bright and the shadow reads as depth.
+  (function () {
+    document.querySelectorAll('pre.art').forEach(function (pre) {
+      var lines = pre.textContent.replace(/^\n/, '').split('\n');
+      pre.textContent = '';
+      lines.forEach(function (line) {
+        var row = document.createElement('span');
+        row.className = 'row';
+        row.textContent = line + '\n';
+        pre.appendChild(row);
+      });
+    });
+  })();
+</script>
+
+</body>
+</html>
