@@ -10,6 +10,52 @@
   publish = "."
   port = 8888
 
+# The site publishes from the repo root, so the build tooling, the schema and
+# the function source would otherwise be served as ordinary static files. The
+# repo is public, so this is tidiness rather than secrecy: the site should
+# serve the site. Anything added here needs its own line, which is the cost of
+# publishing from the root rather than from a build directory.
+[[redirects]]
+  from = "/netlify/*"
+  to = "/"
+  status = 404
+  force = true
+[[redirects]]
+  from = "/db/*"
+  to = "/"
+  status = 404
+  force = true
+[[redirects]]
+  from = "/package.json"
+  to = "/"
+  status = 404
+  force = true
+[[redirects]]
+  from = "/package-lock.json"
+  to = "/"
+  status = 404
+  force = true
+[[redirects]]
+  from = "/deno.lock"
+  to = "/"
+  status = 404
+  force = true
+[[redirects]]
+  from = "/build-icons.py"
+  to = "/"
+  status = 404
+  force = true
+[[redirects]]
+  from = "/build-course-bundle.py"
+  to = "/"
+  status = 404
+  force = true
+[[redirects]]
+  from = "/test-auth.mjs"
+  to = "/"
+  status = 404
+  force = true
+
 [[headers]]
   for = "/run/*.json"
   [headers.values]
