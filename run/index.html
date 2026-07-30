@@ -4,7 +4,22 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Run a course in your browser</title>
-<meta name="description" content="Run a Skool course in your browser. Real Python, running on your own machine, nothing sent anywhere.">
+<meta name="description" content="Run a Skool course in your browser. Real Python running in your own tab, with a free account that saves your place.">
+
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<meta name="theme-color" content="#171717">
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="aifreeware.net">
+<meta property="og:url" content="https://aifreeware.net/run/">
+<meta property="og:title" content="Run a course in your browser">
+<meta property="og:description" content="Real Python running in your own tab, with a free account that saves your place.">
+<meta property="og:image" content="https://aifreeware.net/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
 <style>
   :root{
     --bg:#171717;
@@ -78,8 +93,62 @@
   .btn:hover{background:var(--lime);color:var(--bg)}
   .btn.ghost{border-color:var(--rule);color:var(--gray-dim)}
   .btn.ghost:hover{background:transparent;color:var(--gray);border-color:var(--gray-dim)}
+  .btn[disabled]{opacity:0.45;cursor:default}
+  .btn[disabled]:hover{background:transparent;color:var(--lime)}
 
-  a:focus-visible,.btn:focus-visible{outline:2px solid var(--lime);outline-offset:2px}
+  /* account slot in the chrome bar */
+  .chrome .right{display:flex;align-items:center;gap:1rem}
+  #acct{color:var(--gray-dim)}
+  #acct .who{color:var(--lime)}
+  #acct button{
+    background:transparent;border:0;padding:0;cursor:pointer;
+    font:inherit;color:var(--gray-dim);text-decoration:underline;
+    text-underline-offset:3px;
+  }
+  #acct button:hover{color:var(--lime)}
+
+  /* sign-in overlay, same shape as the editor */
+  #auth{
+    position:fixed;inset:0;z-index:30;
+    background:rgba(23,23,23,0.92);
+    display:none;align-items:center;justify-content:center;padding:16px;
+  }
+  #auth.open{display:flex}
+  #authbox{
+    width:min(30rem,100%);
+    border:1px solid var(--rule);
+    background:var(--bg);
+  }
+  #authhead{
+    padding:10px 16px;border-bottom:1px solid var(--rule);
+    font-size:11.5px;letter-spacing:0.06em;color:var(--gray-dim);
+  }
+  #authhead b{color:var(--lime);font-weight:400}
+  #authbody{padding:16px;display:grid;gap:0.9rem}
+  #authbody label{display:grid;gap:0.35rem;font-size:11.5px;letter-spacing:0.05em;color:var(--gray-dim)}
+  #authbody input{
+    background:transparent;border:1px solid var(--rule);
+    color:var(--gray);font:inherit;font-size:13.5px;
+    padding:0.55em 0.7em;outline:0;caret-color:var(--lime);
+  }
+  #authbody input:focus{border-color:var(--lime);color:var(--lime)}
+  #autherr{font-size:12px;color:var(--red);min-height:1.2em}
+  #autherr:empty{display:none}
+  #authrow{display:flex;gap:0.6rem;align-items:center;margin-top:0.2rem}
+  #authswap{
+    margin:0;font-size:12px;color:var(--gray-dim);
+    border-top:1px solid var(--rule);padding:11px 16px;
+  }
+  #authswap button{
+    background:transparent;border:0;padding:0;cursor:pointer;
+    font:inherit;color:var(--gray);text-decoration:underline;text-underline-offset:3px;
+  }
+  #authswap button:hover{color:var(--lime)}
+
+  a:focus-visible,.btn:focus-visible,#acct button:focus-visible,
+  #authswap button:focus-visible,#authbody input:focus-visible{
+    outline:2px solid var(--lime);outline-offset:2px;
+  }
   ::selection{background:var(--lime);color:var(--bg)}
 </style>
 </head>
@@ -87,7 +156,10 @@
 
 <div class="chrome">
   <span><a href="/"><span class="host">aifreeware.net</span></a> <span class="dim">/ <span id="cname">code-skool</span></span></span>
-  <span id="status">booting</span>
+  <span class="right">
+    <span id="acct">guest <button type="button" id="signin">sign in</button></span>
+    <span id="status">booting</span>
+  </span>
 </div>
 
 <div id="screen"></div>
@@ -106,6 +178,28 @@
     </span>
   </div>
   <textarea id="edtext" spellcheck="false"></textarea>
+</div>
+
+<div id="auth">
+  <form id="authbox" autocomplete="on">
+    <div id="authhead"><b id="authtitle">sign in</b> <span id="authwhy">so your work follows you to another machine</span></div>
+    <div id="authbody">
+      <label>email
+        <input id="authemail" name="email" type="email" autocomplete="username"
+               spellcheck="false" autocapitalize="off" required>
+      </label>
+      <label>password
+        <input id="authpw" name="password" type="password" autocomplete="current-password"
+               minlength="8" required>
+      </label>
+      <p id="autherr" role="alert"></p>
+      <div id="authrow">
+        <button class="btn" type="submit" id="authgo">sign in</button>
+        <button class="btn ghost" type="button" id="authcancel">cancel</button>
+      </div>
+    </div>
+    <p id="authswap">No account yet? <button type="button" id="authswapbtn">create one</button></p>
+  </form>
 </div>
 
 <script>
@@ -191,32 +285,295 @@ const rel = p => p===ROOT ? '~' : p.startsWith(ROOT+'/') ? '~/'+p.slice(ROOT.len
 
 function setPrompt(){ ps1El.textContent = rel(cwd) + ' $ '; }
 
-/* ---------- persistence: only the student's own work/ files ---------- */
-function saveWork(){
+/* ---------- accounts ----------
+   Better Auth's REST endpoints are called directly. The site has no build
+   step, so pulling in the client bundle would mean adding one for four fetches.
+   The session cookie is httpOnly and set by the server; nothing here reads it. */
+const AUTH = '/api/auth';
+let USER = null;
+
+async function authApi(path, body){
+  const res = await fetch(AUTH+path, {
+    method: body===undefined ? 'GET' : 'POST',
+    headers: body===undefined ? undefined : {'content-type':'application/json'},
+    body: body===undefined ? undefined : JSON.stringify(body),
+    credentials:'same-origin'
+  });
+  let d=null; try{ d=await res.json(); }catch{}
+  if(!res.ok){
+    const said = d && (d.message || d.error);
+    if(said) throw new Error(said);
+    // No JSON body means the service itself is down, not a bad password.
+    throw new Error(res.status >= 500
+      ? 'The sign-in service is not responding. Try again in a moment.'
+      : 'The sign-in service turned that down ('+res.status+').');
+  }
+  return d;
+}
+
+async function refreshSession(){
+  try{ const d=await authApi('/get-session'); USER=(d && d.user) || null; }
+  catch{ USER=null; }
+  paintAccount();
+  return USER;
+}
+
+function paintAccount(){
+  const el=document.getElementById('acct');
+  el.textContent='';
+  if(USER){
+    const who=document.createElement('span');
+    who.className='who'; who.textContent=USER.email;
+    const out=document.createElement('button');
+    out.type='button'; out.textContent='sign out';
+    out.onclick=()=>doLogout();
+    el.append(who, document.createTextNode(' '), out);
+  }else{
+    const b=document.createElement('button');
+    b.type='button'; b.textContent='sign in';
+    b.onclick=async ()=>{
+      const u=await openAuth('signin');
+      if(u){ line('Signed in as '+u.email,'dim'); await mergeAccountWork(); }
+    };
+    el.append(document.createTextNode('guest '), b);
+  }
+}
+
+/* Better Auth's messages are written for developers. These are the ones a
+   student can actually hit, said plainly. */
+function authMessage(msg){
+  const m=String(msg||'').toLowerCase();
+  if(m.includes('already exists')||m.includes('already registered'))
+    return 'That email already has an account. Try signing in instead.';
+  if(m.includes('invalid email')||m.includes('valid email'))
+    return 'That does not look like an email address.';
+  if(m.includes('invalid')&&(m.includes('password')||m.includes('credential')))
+    return 'That email and password do not match.';
+  if(m.includes('password')&&(m.includes('short')||m.includes('least')||m.includes('8')))
+    return 'Use at least 8 characters for the password.';
+  if(m.includes('failed to fetch')||m.includes('networkerror')||m.includes('load failed'))
+    return 'Could not reach the sign-in service. Check your connection.';
+  return msg;
+}
+
+const authEl=document.getElementById('auth');
+const authForm=document.getElementById('authbox');
+const authEmail=document.getElementById('authemail');
+const authPw=document.getElementById('authpw');
+const authErr=document.getElementById('autherr');
+const authGo=document.getElementById('authgo');
+const authTitle=document.getElementById('authtitle');
+const authWhy=document.getElementById('authwhy');
+const authSwap=document.getElementById('authswap');
+const authSwapBtn=document.getElementById('authswapbtn');
+let authMode='signin', authDone=null;
+
+function paintAuthMode(){
+  const up = authMode==='signup';
+  authTitle.textContent = up ? 'create an account' : 'sign in';
+  authWhy.textContent = up
+    ? 'free, and only so your work follows you to another machine'
+    : 'so your work follows you to another machine';
+  authGo.textContent = up ? 'create account' : 'sign in';
+  authPw.autocomplete = up ? 'new-password' : 'current-password';
+  authSwap.firstChild.textContent = up ? 'Already have one? ' : 'No account yet? ';
+  authSwapBtn.textContent = up ? 'sign in' : 'create one';
+  authErr.textContent='';
+}
+
+function openAuth(mode){
+  authMode = mode==='signup' ? 'signup' : 'signin';
+  paintAuthMode();
+  authEl.classList.add('open');
+  setTimeout(()=>(authEmail.value ? authPw : authEmail).focus(), 0);
+  return new Promise(res=>{ authDone=res; });
+}
+function closeAuth(result){
+  authEl.classList.remove('open');
+  authPw.value='';
+  const done=authDone; authDone=null;
+  if(done) done(result||null);
+  if(!edEl.classList.contains('open')) cmdEl.focus();
+}
+
+authForm.addEventListener('submit', async e=>{
+  e.preventDefault();
+  const email=authEmail.value.trim(), password=authPw.value;
+  if(!email || !password) return;
+  const label=authGo.textContent;
+  authErr.textContent=''; authGo.disabled=true; authGo.textContent='working';
+  try{
+    if(authMode==='signup') await authApi('/sign-up/email',{email, password, name:email.split('@')[0]});
+    else                    await authApi('/sign-in/email',{email, password});
+    await refreshSession();
+    if(!USER) throw new Error('signed in, but no session came back');
+    closeAuth(USER);
+  }catch(err){
+    authErr.textContent = authMessage(err.message);
+    authPw.select();
+  }finally{
+    authGo.disabled=false; authGo.textContent=label;
+  }
+});
+document.getElementById('authcancel').onclick=()=>closeAuth(null);
+authSwapBtn.onclick=()=>{ authMode = authMode==='signup' ? 'signin' : 'signup'; paintAuthMode(); authEmail.focus(); };
+authEl.addEventListener('keydown', e=>{ if(e.key==='Escape'){ e.preventDefault(); closeAuth(null); } });
+
+async function doLogout(){
+  if(!USER) return line('You are not signed in.','dim');
+  const who=USER.email;
+  await pushWork(true);
+  try{ await authApi('/sign-out',{}); }catch{}
+  USER=null; paintAccount();
+  statusEl.textContent='ready'; statusEl.className='ready';
+  line('Signed out of '+who+'. Your work stays in this browser.','dim');
+}
+
+/* ---------- persistence: only the student's own work/ files ----------
+   Two copies exist. localStorage is the one that always works, including
+   signed out and offline. The account copy is what lets them move machines.
+   Every save writes the browser copy first, then tries the account. */
+
+/* work/ ships with a starter file per exercise. Those are course files, not
+   student work, so they are held aside at load and anything still identical to
+   its starter is skipped. Without this every account would be handed a copy of
+   all 40-odd untouched templates, and a second machine would see each pristine
+   file as a conflict with the one the student had actually edited. */
+let PRISTINE = {};
+
+function collectWork(){
   const store={};
   (function walk(dir){
     let names=[]; try{ names=py.FS.readdir(dir); }catch{ return; }
     for(const n of names){
       if(n==='.'||n==='..') continue;
       const full=dir+'/'+n;
-      if(isDir(full)) walk(full);
-      else if(isFile(full)){
-        try{ store[full.slice(ROOT.length+1)] = py.FS.readFile(full,{encoding:'utf8'}); }catch{}
-      }
+      if(isDir(full)){ walk(full); continue; }
+      if(!isFile(full)) continue;
+      const key=full.slice(ROOT.length+1);
+      try{
+        const content=py.FS.readFile(full,{encoding:'utf8'});
+        if(PRISTINE[key] !== content) store[key]=content;
+      }catch{}
     }
   })(ROOT+'/work');
-  try{ localStorage.setItem(LSKEY, JSON.stringify(store)); }catch(e){
-    line('Could not save your work: '+e.message,'err');
-  }
+  return store;
 }
-function loadWork(){
-  let store={}; try{ store=JSON.parse(localStorage.getItem(LSKEY)||'{}'); }catch{}
+function writeWork(store){
   let n=0;
-  for(const [p,content] of Object.entries(store)){
+  for(const [p,content] of Object.entries(store||{})){
+    if(!p.startsWith('work/')) continue;
     const full=ROOT+'/'+p;
-    try{ py.FS.writeFile(full, content); n++; }catch{}
+    try{
+      py.FS.mkdirTree(full.slice(0, full.lastIndexOf('/')));
+      py.FS.writeFile(full, content);
+      n++;
+    }catch{}
   }
   return n;
+}
+function localWork(){
+  try{ return JSON.parse(localStorage.getItem(LSKEY)||'{}'); }catch{ return {}; }
+}
+function saveLocal(store){
+  try{ localStorage.setItem(LSKEY, JSON.stringify(store || collectWork())); }
+  catch(e){ line('Could not save in this browser: '+e.message,'err'); }
+}
+function saveWork(){
+  saveLocal();
+  if(USER) queuePush();
+}
+
+/* ---------- the account copy ---------- */
+let pushTimer=null, pushing=false, pushAgain=false;
+
+function setSync(state){
+  if(!USER) return;
+  statusEl.textContent=state;
+  statusEl.className = state==='saved' ? 'ready' : '';
+  if(state==='saved') setTimeout(()=>{
+    if(statusEl.textContent==='saved'){ statusEl.textContent='ready'; statusEl.className='ready'; }
+  }, 1400);
+}
+
+function queuePush(){ clearTimeout(pushTimer); pushTimer=setTimeout(()=>pushWork(true), 1200); }
+
+async function pushWork(quiet){
+  if(!USER) return 0;
+  if(pushing){ pushAgain=true; return 0; }
+  pushing=true; setSync('saving');
+  try{
+    const res=await fetch('/api/progress',{
+      method:'PUT',
+      headers:{'content-type':'application/json'},
+      credentials:'same-origin',
+      body:JSON.stringify({course:COURSE, files:collectWork()})
+    });
+    if(res.status===401){
+      USER=null; paintAccount();
+      line('Your session expired. Type login to save to your account again.','err');
+      return 0;
+    }
+    const d=await res.json().catch(()=>null);
+    if(!res.ok) throw new Error((d && d.error) || ('the server said '+res.status));
+    setSync('saved');
+    return d ? d.saved : 0;
+  }catch(e){
+    setSync('not saved');
+    if(!quiet) line('Could not save to your account: '+e.message,'err');
+    return 0;
+  }finally{
+    pushing=false;
+    if(pushAgain){ pushAgain=false; queuePush(); }
+  }
+}
+
+async function pullWork(){
+  const res=await fetch('/api/progress?course='+encodeURIComponent(COURSE),{credentials:'same-origin'});
+  if(!res.ok) throw new Error('the server said '+res.status);
+  const d=await res.json();
+  return (d && d.files) || {};
+}
+
+/* A file edited here while signed out can differ from the account copy. Rather
+   than pick a winner silently, keep the account version where it belongs and
+   park this browser's version next to it. Nothing a student typed is thrown
+   away without them seeing it. */
+function browserCopyPath(p){
+  const dot=p.lastIndexOf('.'), slash=p.lastIndexOf('/');
+  return dot>slash ? p.slice(0,dot)+'.browser-copy'+p.slice(dot) : p+'.browser-copy';
+}
+
+async function mergeAccountWork(){
+  let remote;
+  try{ remote=await pullWork(); }
+  catch(e){ line('Signed in, but could not read your saved work: '+e.message,'err'); return; }
+
+  const local=collectWork();
+  const conflicts={};
+  let onlyHere=0;
+
+  for(const [p,content] of Object.entries(local)){
+    if(!(p in remote)) onlyHere++;
+    else if(remote[p]!==content) conflicts[browserCopyPath(p)]=content;
+  }
+
+  const restored=writeWork(remote);
+  const parked=writeWork(conflicts);
+  saveLocal();
+
+  if(restored) line('Restored '+restored+' file'+(restored===1?'':'s')+' from your account.','dim');
+  if(parked){
+    line(parked+' file'+(parked===1?'':'s')+' here did not match your account. Yours '
+       + (parked===1?'was':'were')+' kept alongside, named .browser-copy','dim');
+  }
+  if(onlyHere){
+    await pushWork(true);
+    line('Sent '+onlyHere+' file'+(onlyHere===1?'':'s')+' from this browser up to your account.','dim');
+  }
+  if(!restored && !parked && !onlyHere){
+    line('Nothing saved for this course yet. It will save as you go.','dim');
+  }
 }
 
 /* ---------- python execution ---------- */
@@ -280,6 +637,14 @@ Commands
   reset               throw away your saved work and start fresh
   help                this
 
+Your account
+
+  login               sign in, so your work follows you to another machine
+  signup              create a free account
+  logout              sign out
+  whoami              who is signed in
+  sync                save to your account right now
+
 Try this first
 
   cat START_HERE.md
@@ -332,9 +697,50 @@ async function exec(raw){
       return;
     }
 
+    case 'login': case 'signin': {
+      if(USER) return line('Already signed in as '+USER.email+'.','dim');
+      const u=await openAuth('signin');
+      if(!u) return;
+      line('Signed in as '+u.email,'dim');
+      await mergeAccountWork();
+      return;
+    }
+
+    case 'signup': case 'register': {
+      if(USER) return line('Already signed in as '+USER.email+'. Type logout first.','dim');
+      const u=await openAuth('signup');
+      if(!u) return;
+      line('Account created. Signed in as '+u.email,'dim');
+      await mergeAccountWork();
+      return;
+    }
+
+    case 'logout': case 'signout': await doLogout(); return;
+
+    case 'whoami': {
+      if(USER) return line(USER.email);
+      line('guest. Your work saves in this browser only. Type login to keep it on your account.','dim');
+      return;
+    }
+
+    case 'sync': {
+      if(!USER) return line('Not signed in. Type login first.','err');
+      const n=await pushWork();
+      if(n) line('Saved '+n+' file'+(n===1?'':'s')+' to your account.','dim');
+      return;
+    }
+
     case 'reset': {
       localStorage.removeItem(LSKEY);
-      line('Saved work cleared. Reload the page to start fresh.','dim');
+      if(!USER) return line('Saved work cleared. Reload the page to start fresh.','dim');
+      try{
+        const res=await fetch('/api/progress?course='+encodeURIComponent(COURSE),
+                              {method:'DELETE', credentials:'same-origin'});
+        if(!res.ok) throw new Error('the server said '+res.status);
+        line('Saved work cleared here and on your account. Reload the page to start fresh.','dim');
+      }catch(e){
+        line('Cleared in this browser, but could not clear your account: '+e.message,'err');
+      }
       return;
     }
 
@@ -407,15 +813,19 @@ cmdEl.addEventListener('keydown',e=>{
   if(e.key==='ArrowDown'){ e.preventDefault(); if(hpos<history.length-1){ hpos++; cmdEl.value=history[hpos]; } else { hpos=history.length; cmdEl.value=''; } }
 });
 document.addEventListener('mouseup',()=>{
-  if(!edEl.classList.contains('open') && !window.getSelection().toString()) cmdEl.focus();
+  if(edEl.classList.contains('open') || authEl.classList.contains('open')) return;
+  if(!window.getSelection().toString()) cmdEl.focus();
 });
 
 /* ---------- boot ---------- */
 (async function boot(){
   document.title = INFO.title + ' in your browser';
   document.getElementById('cname').textContent = COURSE;
+  paintAccount();
+  // Fire this now and read it after Pyodide lands, rather than paying for it twice.
+  const session = refreshSession();
   line(INFO.title);
-  line('Real Python, running in this tab. Nothing is sent anywhere.\n','dim');
+  line('Real Python, running in this tab. Your code runs in your own browser,\nnever on a server. Your saved work goes to your account so you can pick this\nup on another machine.\n','dim');
 
   try{
     write('Loading Python ');
@@ -438,12 +848,23 @@ document.addEventListener('mouseup',()=>{
       const full=ROOT+'/'+p, dir=full.slice(0, full.lastIndexOf('/'));
       py.FS.mkdirTree(dir);
       py.FS.writeFile(full, content);
+      if(p.startsWith('work/')) PRISTINE[p]=content;
     }
     line('ok, '+Object.keys(bundle.files).length+' files','dim');
 
     await py.runPythonAsync(PYPRELUDE);
-    const restored = loadWork();
-    if(restored) line('Restored '+restored+' file'+(restored===1?'':'s')+' you had been working on.','dim');
+
+    // The browser copy goes down first so there is always something to work
+    // with, even if the account is unreachable.
+    const restored = writeWork(localWork());
+    await session;
+    if(USER){
+      line('Signed in as '+USER.email,'dim');
+      await mergeAccountWork();
+    }else{
+      if(restored) line('Restored '+restored+' file'+(restored===1?'':'s')+' you had been working on in this browser.','dim');
+      line('Working as a guest. Your work saves in this browser only. Type login to keep it on your account.','dim');
+    }
 
     statusEl.textContent='ready'; statusEl.className='ready';
     if(INFO.note) line('\n' + INFO.note, 'dim');
