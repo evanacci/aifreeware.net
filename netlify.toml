@@ -56,6 +56,18 @@
   status = 404
   force = true
 
+# Cross-origin isolation, which is what makes SharedArrayBuffer available. The
+# browser terminal needs it so input() can genuinely block the Python worker and
+# so a runaway loop can be interrupted. Scoped to /run/ on purpose: the landing
+# page and the auth API have no need of it and should not inherit the
+# restriction. Pyodide is served by jsDelivr with Cross-Origin-Resource-Policy,
+# so require-corp does not block it.
+[[headers]]
+  for = "/run/*"
+  [headers.values]
+    Cross-Origin-Opener-Policy = "same-origin"
+    Cross-Origin-Embedder-Policy = "require-corp"
+
 [[headers]]
   for = "/run/*.json"
   [headers.values]

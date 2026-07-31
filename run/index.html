@@ -219,13 +219,13 @@ const INFO   = COURSES[COURSE];
 const PKG    = INFO.pkg;
 const ROOT   = '/' + COURSE;
 const LSKEY  = 'aifw:' + COURSE + ':work';
-const PYODIDE = 'https://cdn.jsdelivr.net/pyodide/v314.0.3/full/';
+// Pyodide itself is loaded by run/py-worker.js, not here.
 
 const screenEl = document.getElementById('screen');
 const cmdEl    = document.getElementById('cmd');
 const ps1El    = document.getElementById('ps1');
 const statusEl = document.getElementById('status');
-let py = null, cwd = ROOT, history = [], hpos = 0;
+let cwd = ROOT, history = [], hpos = 0;
 
 /* ---------- output ---------- */
 const ANSI = {30:'#171717',31:'#ff8d8d',32:'#b8e986',33:'#e2f79c',34:'#8ab4f8',
@@ -279,11 +279,34 @@ const norm = p => {
   }
   return '/'+parts.join('/');
 };
-const isDir = p => { try{ return py.FS.isDir(py.FS.stat(p).mode); }catch{ return false; } };
-const isFile = p => { try{ return py.FS.isFile(py.FS.stat(p).mode); }catch{ return false; } };
 const rel = p => p===ROOT ? '~' : p.startsWith(ROOT+'/') ? '~/'+p.slice(ROOT.length+1) : p;
 
 function setPrompt(){ ps1El.textContent = rel(cwd) + ' $ '; }
+
+/* ---------- the Python worker ----------
+   Python lives in a worker so input() can block and a runaway loop can be
+   interrupted. Nothing here touches the filesystem directly any more; every
+   read and write is a message. Walking and batch writes stay on the worker
+   side, because doing those a file at a time would be hundreds of round trips. */
+let worker = null, stdinReady = false;
+let ctl = null, sbuf = null, interruptBuf = null;
+
+const pending = new Map();
+let msgId = 0;
+
+function ask(op, ...args){
+  return new Promise((res, rej) => {
+    const id = ++msgId;
+    pending.set(id, { res, rej });
+    worker.postMessage({ type:'fs', id, op, args });
+  });
+}
+const fsList   = p => ask('list', p);
+const fsStat   = p => ask('stat', p);
+const fsRead   = p => ask('read', p);
+const fsWrite  = (p, c) => ask('write', p, c);
+const fsCollect = () => ask('collect');
+const fsRestore = files => ask('restore', files);
 
 /* ---------- accounts ----------
    Better Auth's REST endpoints are called directly. The site has no build
@@ -435,52 +458,22 @@ async function doLogout(){
    Every save writes the browser copy first, then tries the account. */
 
 /* work/ ships with a starter file per exercise. Those are course files, not
-   student work, so they are held aside at load and anything still identical to
-   its starter is skipped. Without this every account would be handed a copy of
-   all 40-odd untouched templates, and a second machine would see each pristine
-   file as a conflict with the one the student had actually edited. */
-let PRISTINE = {};
+   student work, so the worker holds them aside at load and anything still
+   identical to its starter is skipped. Without this every account would be
+   handed a copy of all 40-odd untouched templates, and a second machine would
+   see each pristine file as a conflict with the one actually edited. */
+const collectWork = () => fsCollect().then(r => r.files);
+const writeWork   = files => fsRestore(files).then(r => r.written);
 
-function collectWork(){
-  const store={};
-  (function walk(dir){
-    let names=[]; try{ names=py.FS.readdir(dir); }catch{ return; }
-    for(const n of names){
-      if(n==='.'||n==='..') continue;
-      const full=dir+'/'+n;
-      if(isDir(full)){ walk(full); continue; }
-      if(!isFile(full)) continue;
-      const key=full.slice(ROOT.length+1);
-      try{
-        const content=py.FS.readFile(full,{encoding:'utf8'});
-        if(PRISTINE[key] !== content) store[key]=content;
-      }catch{}
-    }
-  })(ROOT+'/work');
-  return store;
-}
-function writeWork(store){
-  let n=0;
-  for(const [p,content] of Object.entries(store||{})){
-    if(!p.startsWith('work/')) continue;
-    const full=ROOT+'/'+p;
-    try{
-      py.FS.mkdirTree(full.slice(0, full.lastIndexOf('/')));
-      py.FS.writeFile(full, content);
-      n++;
-    }catch{}
-  }
-  return n;
-}
 function localWork(){
   try{ return JSON.parse(localStorage.getItem(LSKEY)||'{}'); }catch{ return {}; }
 }
-function saveLocal(store){
-  try{ localStorage.setItem(LSKEY, JSON.stringify(store || collectWork())); }
+async function saveLocal(store){
+  try{ localStorage.setItem(LSKEY, JSON.stringify(store || await collectWork())); }
   catch(e){ line('Could not save in this browser: '+e.message,'err'); }
 }
-function saveWork(){
-  saveLocal();
+async function saveWork(){
+  await saveLocal();
   if(USER) queuePush();
 }
 
@@ -507,7 +500,7 @@ async function pushWork(quiet){
       method:'PUT',
       headers:{'content-type':'application/json'},
       credentials:'same-origin',
-      body:JSON.stringify({course:COURSE, files:collectWork()})
+      body:JSON.stringify({course:COURSE, files: await collectWork()})
     });
     if(res.status===401){
       USER=null; paintAccount();
@@ -549,7 +542,7 @@ async function mergeAccountWork(){
   try{ remote=await pullWork(); }
   catch(e){ line('Signed in, but could not read your saved work: '+e.message,'err'); return; }
 
-  const local=collectWork();
+  const local=await collectWork();
   const conflicts={};
   let onlyHere=0;
 
@@ -558,9 +551,9 @@ async function mergeAccountWork(){
     else if(remote[p]!==content) conflicts[browserCopyPath(p)]=content;
   }
 
-  const restored=writeWork(remote);
-  const parked=writeWork(conflicts);
-  saveLocal();
+  const restored=await writeWork(remote);
+  const parked=await writeWork(conflicts);
+  await saveLocal();
 
   if(restored) line('Restored '+restored+' file'+(restored===1?'':'s')+' from your account.','dim');
   if(parked){
@@ -577,49 +570,44 @@ async function mergeAccountWork(){
 }
 
 /* ---------- python execution ---------- */
+let running = false, interrupted = false;
+
 async function runPy(code){
-  try{ await py.runPythonAsync(code); }
-  catch(e){
-    const msg=String(e.message||e);
-    // a clean SystemExit is how the course signals a bad week number
-    const m=msg.match(/SystemExit:\s*(\d+)/);
-    if(m) return Number(m[1]);
-    if(/EOFError/.test(msg)){
-      line('This program asks you a question with input(), and the browser '
-         + 'terminal cannot type answers back yet.','err');
+  running = true; interrupted = false;
+  if(stdinReady) interruptBuf[0] = 0;
+  try{
+    const { code: status, error } = await ask_run(code);
+    if(!error) return status;
+
+    // A clean SystemExit is how the course signals a bad week number.
+    // An interrupt during input() surfaces as EOFError, because unblocking the
+    // waiting worker is what lets it notice the signal at all.
+    if(/KeyboardInterrupt/.test(error) || (interrupted && /EOFError/.test(error))){
+      line('^C','dim');
+      return 130;
+    }
+    if(/EOFError/.test(error) && !stdinReady){
+      line('This program asks you a question with input(), and this browser '
+         + 'cannot type answers back.','err');
       line('Download the course from aifreeware.net to run this one. Everything '
          + 'that does not use input() works here.','dim');
       return 1;
     }
-    line(msg.split('\n').slice(-14).join('\n').trim(),'err');
+    line(error.split('\n').slice(-14).join('\n').trim(),'err');
     return 1;
+  } finally {
+    running = false;
+    endInput();
   }
-  return 0;
 }
 
-const PYPRELUDE = `
-import sys, os, runpy, traceback
-sys.path.insert(0, '${ROOT}/code/src')
-os.chdir('${ROOT}')
-
-def _aifw_run_module(mod, argv):
-    sys.argv = [mod] + argv
-    try:
-        runpy.run_module(mod, run_name='__main__', alter_sys=True)
-    except SystemExit as e:
-        code = e.code
-        if isinstance(code, str):
-            print(code)
-            raise SystemExit(1)
-        raise SystemExit(int(code or 0))
-
-def _aifw_run_path(path, argv):
-    sys.argv = [path] + argv
-    try:
-        runpy.run_path(path, run_name='__main__')
-    except SystemExit as e:
-        raise SystemExit(int(e.code or 0)) if not isinstance(e.code, str) else SystemExit(1)
-`;
+function ask_run(code){
+  return new Promise((res, rej) => {
+    const id = ++msgId;
+    pending.set(id, { res, rej });
+    worker.postMessage({ type:'run', id, code });
+  });
+}
 
 /* ---------- commands ---------- */
 const HELP = `
@@ -636,6 +624,8 @@ Commands
   clear               clear the screen
   reset               throw away your saved work and start fresh
   help                this
+
+  Ctrl+C              stop a program that is running or stuck
 
 Your account
 
@@ -666,10 +656,11 @@ async function exec(raw){
 
     case 'ls': {
       const target = norm(rest[0] || '.');
-      if(!isDir(target)) return line(isFile(target) ? rel(target) : 'ls: no such folder: '+(rest[0]||'.'), isFile(target)?null:'err');
-      const names = py.FS.readdir(target).filter(n=>n!=='.'&&n!=='..').sort();
-      const dirs = names.filter(n=>isDir(target+'/'+n)).map(n=>n+'/');
-      const files = names.filter(n=>!isDir(target+'/'+n));
+      const r = await fsList(target);
+      if(r.kind === 'file') return line(rel(target));
+      if(r.kind !== 'dir') return line('ls: no such folder: '+(rest[0]||'.'),'err');
+      const dirs = r.entries.filter(e=>e.dir).map(e=>e.name+'/');
+      const files = r.entries.filter(e=>!e.dir).map(e=>e.name);
       line([...dirs, ...files].join('   '));
       return;
     }
@@ -677,23 +668,25 @@ async function exec(raw){
     case 'cd': {
       if(!rest[0]) { cwd = ROOT; setPrompt(); return; }
       const target = norm(rest[0]);
-      if(!isDir(target)) return line('cd: no such folder: '+rest[0],'err');
+      const s = await fsStat(target);
+      if(!s || !s.dir) return line('cd: no such folder: '+rest[0],'err');
       cwd = target; setPrompt(); return;
     }
 
     case 'cat': {
       if(!rest[0]) return line('cat: which file?','err');
-      const target = norm(rest[0]);
-      if(!isFile(target)) return line('cat: no such file: '+rest[0],'err');
-      line(py.FS.readFile(target,{encoding:'utf8'}));
+      const r = await fsRead(norm(rest[0]));
+      if(!r.ok) return line('cat: no such file: '+rest[0],'err');
+      line(r.content);
       return;
     }
 
     case 'edit': {
       if(!rest[0]) return line('edit: which file?','err');
       const target = norm(rest[0]);
-      if(!isFile(target)) return line('edit: no such file: '+rest[0],'err');
-      openEditor(target);
+      const r = await fsRead(target);
+      if(!r.ok) return line('edit: no such file: '+rest[0],'err');
+      openEditor(target, r.content);
       return;
     }
 
@@ -754,7 +747,8 @@ async function exec(raw){
         return;
       }
       const target = norm(rest[0]);
-      if(!isFile(target)) return line('python: no such file: '+rest[0],'err');
+      const s = await fsStat(target);
+      if(!s || !s.file) return line('python: no such file: '+rest[0],'err');
       const args = JSON.stringify(rest.slice(1));
       await runPy(`_aifw_run_path(${JSON.stringify(target)}, ${args})`);
       return;
@@ -769,20 +763,21 @@ async function exec(raw){
 const edEl=document.getElementById('editor'), edText=document.getElementById('edtext'),
       edPath=document.getElementById('edpath');
 let editing=null;
-function openEditor(path){
+function openEditor(path, content){
   editing=path;
   edPath.textContent=rel(path);
-  edText.value=py.FS.readFile(path,{encoding:'utf8'});
+  edText.value=content;
   edEl.classList.add('open');
   edText.focus();
 }
-function closeEditor(save){
-  if(save && editing){
-    py.FS.writeFile(editing, edText.value);
-    if(editing.startsWith(ROOT+'/work')) saveWork();
-    line('saved '+rel(editing),'dim');
-  }
+async function closeEditor(save){
+  const path=editing, text=edText.value;
   editing=null; edEl.classList.remove('open'); cmdEl.focus();
+  if(save && path){
+    await fsWrite(path, text);
+    if(path.startsWith(ROOT+'/work')) await saveWork();
+    line('saved '+rel(path),'dim');
+  }
 }
 document.getElementById('edsave').onclick=()=>closeEditor(true);
 document.getElementById('edcancel').onclick=()=>closeEditor(false);
@@ -797,18 +792,86 @@ edText.addEventListener('keydown',e=>{
   }
 });
 
-/* ---------- input ---------- */
+/* ---------- answering input() ----------
+   While a program waits on input(), the same prompt line becomes the program's
+   input rather than a command line. The worker is genuinely blocked in
+   Atomics.wait until a line is handed over, which is what makes input() behave
+   the way it does in a real terminal. */
+let inputMode = false;
+
+function beginInput(){
+  inputMode = true;
+  ps1El.textContent = '';          // the program prints its own prompt
+  cmdEl.disabled = false;
+  cmdEl.focus();
+}
+function endInput(){
+  // Always restore the prompt, even when inputMode is already false. Answering
+  // the last input() clears the flag, so an early return here would leave the
+  // prompt blank for the next command.
+  inputMode = false;
+  cmdEl.value = '';
+  setPrompt();
+}
+function supplyStdin(text){
+  const bytes = new TextEncoder().encode(text);
+  const n = Math.min(bytes.length, sbuf.length);
+  sbuf.set(bytes.subarray(0, n), 0);
+  Atomics.store(ctl, 1, n);
+  Atomics.store(ctl, 0, 1);
+  Atomics.notify(ctl, 0);
+}
+function supplyEOF(){
+  Atomics.store(ctl, 0, 2);
+  Atomics.notify(ctl, 0);
+}
+
 document.getElementById('form').addEventListener('submit', async e=>{
   e.preventDefault();
   const raw=cmdEl.value;
   cmdEl.value='';
+
+  if(inputMode){
+    line(raw,'u');
+    inputMode = false;
+    cmdEl.disabled = true;
+    supplyStdin(raw + '\n');
+    return;
+  }
+
   write(ps1El.textContent); line(raw,'u');
   if(raw.trim()){ history.push(raw); hpos=history.length; }
   cmdEl.disabled=true;
   try{ await exec(raw); } finally { cmdEl.disabled=false; cmdEl.focus(); }
   screenEl.scrollTop=screenEl.scrollHeight;
 });
+
+/* Ctrl+C. On Windows and Linux this is also copy, so only take it when a
+   program is actually running and nothing is selected. */
+document.addEventListener('keydown', e=>{
+  if(!(e.ctrlKey && (e.key==='c' || e.key==='C'))) return;
+  if(!running || window.getSelection().toString()) return;
+  e.preventDefault();
+  interrupted = true;
+  if(stdinReady){
+    if(inputMode){
+      // The worker is parked in Atomics.wait, not running Python, so it cannot
+      // see the interrupt buffer. Waking it with EOF is what stops the program.
+      // Arming SIGINT as well would land KeyboardInterrupt and EOFError together
+      // inside the stdin callback, and the run then never settles at all, so the
+      // signal is armed a moment later, only if the program is still going.
+      supplyEOF();
+      setTimeout(() => { if(running) interruptBuf[0] = 2; }, 60);
+    }else{
+      interruptBuf[0] = 2;        // SIGINT, polled by Python between opcodes
+    }
+  }else{
+    line('\n^C  This browser cannot interrupt a running program. Reload the page to stop it.','err');
+  }
+});
+
 cmdEl.addEventListener('keydown',e=>{
+  if(inputMode) return;           // history is for commands, not answers
   if(e.key==='ArrowUp'){ e.preventDefault(); if(hpos>0){ hpos--; cmdEl.value=history[hpos]; } }
   if(e.key==='ArrowDown'){ e.preventDefault(); if(hpos<history.length-1){ hpos++; cmdEl.value=history[hpos]; } else { hpos=history.length; cmdEl.value=''; } }
 });
@@ -828,35 +891,53 @@ document.addEventListener('mouseup',()=>{
   line('Real Python, running in this tab. Your code runs in your own browser,\nnever on a server. Your saved work goes to your account so you can pick this\nup on another machine.\n','dim');
 
   try{
-    write('Loading Python ');
-    const s=document.createElement('script'); s.src=PYODIDE+'pyodide.js';
-    await new Promise((res,rej)=>{ s.onload=res; s.onerror=()=>rej(new Error('could not reach the Pyodide CDN')); document.head.appendChild(s); });
-    py = await loadPyodide({ indexURL: PYODIDE });
-    py.setStdout({ batched: t=>write(t+'\n') });
-    py.setStderr({ batched: t=>write(t+'\n','err') });
-    // No blocking stdin in a browser tab. Return EOF rather than opening a
-    // modal, and turn the resulting EOFError into a plain-English message.
-    py.setStdin({ stdin: () => null });
-    line('ok','dim');
-
-    write('Loading the course ');
-    const res = await fetch('./'+COURSE+'.json');
-    if(!res.ok) throw new Error('could not load the course files ('+res.status+')');
-    const bundle = await res.json();
-    py.FS.mkdirTree(ROOT);
-    for(const [p, content] of Object.entries(bundle.files)){
-      const full=ROOT+'/'+p, dir=full.slice(0, full.lastIndexOf('/'));
-      py.FS.mkdirTree(dir);
-      py.FS.writeFile(full, content);
-      if(p.startsWith('work/')) PRISTINE[p]=content;
+    // Blocking stdin needs a SharedArrayBuffer, which needs the page to be
+    // cross-origin isolated (the COOP/COEP headers in netlify.toml). Where that
+    // is unavailable the terminal still works, input() just reports EOF as before.
+    if(self.crossOriginIsolated && typeof SharedArrayBuffer !== 'undefined'){
+      const sab = new SharedArrayBuffer(8 + 65536);
+      ctl  = new Int32Array(sab, 0, 2);
+      sbuf = new Uint8Array(sab, 8);
+      interruptBuf = new Uint8Array(new SharedArrayBuffer(1));
+      stdinReady = true;
+      var initSab = sab;
     }
-    line('ok, '+Object.keys(bundle.files).length+' files','dim');
 
-    await py.runPythonAsync(PYPRELUDE);
+    worker = new Worker('./py-worker.js', { type:'module' });
+    worker.onerror = ev => {
+      statusEl.textContent='failed';
+      line('\nThe Python worker could not start: '+(ev.message||'unknown error'),'err');
+      line('You can still download the course and run it locally from aifreeware.net.','dim');
+    };
+
+    const booted = new Promise((res, rej) => {
+      worker.onmessage = ev => {
+        const m = ev.data;
+        if(m.type === 'out')        return write(m.text, m.err ? 'err' : null);
+        if(m.type === 'stage')      return m.dim ? line(m.text.trimEnd(),'dim') : write(m.text);
+        if(m.type === 'stdin:want') return beginInput();
+        if(m.type === 'ready')      return res(m);
+        if(m.type === 'failed')     return rej(new Error(m.error));
+        if(m.type === 'reply'){
+          const p = pending.get(m.id);
+          if(!p) return;
+          pending.delete(m.id);
+          return m.ok ? p.res(m.value) : p.rej(new Error(m.error));
+        }
+      };
+    });
+
+    worker.postMessage({
+      type:'init', root:ROOT, sab: initSab, interrupt: interruptBuf,
+      bundleUrl: new URL('./'+COURSE+'.json', location.href).href,
+    });
+
+    const info = await booted;
+    line('ok, '+info.files+' files','dim');
 
     // The browser copy goes down first so there is always something to work
     // with, even if the account is unreachable.
-    const restored = writeWork(localWork());
+    const restored = await writeWork(localWork());
     await session;
     if(USER){
       line('Signed in as '+USER.email,'dim');
