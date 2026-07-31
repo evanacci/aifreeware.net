@@ -134,7 +134,14 @@
   #authbody input:focus{border-color:var(--lime);color:var(--lime)}
   #autherr{font-size:12px;color:var(--red);min-height:1.2em}
   #autherr:empty{display:none}
-  #authrow{display:flex;gap:0.6rem;align-items:center;margin-top:0.2rem}
+  #authrow{display:flex;gap:0.6rem;align-items:center;margin-top:0.2rem;flex-wrap:wrap}
+  #authforgot{
+    background:transparent;border:0;padding:0;cursor:pointer;margin-left:auto;
+    font:inherit;font-size:11.5px;color:var(--gray-dim);
+    text-decoration:underline;text-underline-offset:3px;
+  }
+  #authforgot:hover{color:var(--lime)}
+  #authforgot[hidden]{display:none}
   #authswap{
     margin:0;font-size:12px;color:var(--gray-dim);
     border-top:1px solid var(--rule);padding:11px 16px;
@@ -196,6 +203,7 @@
       <div id="authrow">
         <button class="btn" type="submit" id="authgo">sign in</button>
         <button class="btn ghost" type="button" id="authcancel">cancel</button>
+        <button type="button" id="authforgot">forgot your password?</button>
       </div>
     </div>
     <p id="authswap">No account yet? <button type="button" id="authswapbtn">create one</button></p>
@@ -389,6 +397,7 @@ const authTitle=document.getElementById('authtitle');
 const authWhy=document.getElementById('authwhy');
 const authSwap=document.getElementById('authswap');
 const authSwapBtn=document.getElementById('authswapbtn');
+const authForgot=document.getElementById('authforgot');
 let authMode='signin', authDone=null;
 
 function paintAuthMode(){
@@ -401,7 +410,33 @@ function paintAuthMode(){
   authPw.autocomplete = up ? 'new-password' : 'current-password';
   authSwap.firstChild.textContent = up ? 'Already have one? ' : 'No account yet? ';
   authSwapBtn.textContent = up ? 'sign in' : 'create one';
+  authForgot.hidden = up;
   authErr.textContent='';
+}
+
+/* Forgetting the password would otherwise mean losing the saved work for good,
+   which is the one thing the account is here to prevent. The reply is the same
+   whether or not the address has an account, so this cannot be used to find out
+   who has one. */
+async function requestReset(){
+  const email = authEmail.value.trim();
+  if(!email){
+    authErr.textContent = 'Type your email address first, then ask for a reset.';
+    authEmail.focus();
+    return;
+  }
+  const label = authForgot.textContent;
+  authErr.textContent = ''; authForgot.disabled = true; authForgot.textContent = 'sending';
+  try{
+    await authApi('/request-password-reset', { email, redirectTo: '/reset/' });
+    closeAuth(null);
+    line('If '+email+' has an account, a link to set a new password is on its way.','dim');
+    line('The link works once and expires in an hour.','dim');
+  }catch(err){
+    authErr.textContent = authMessage(err.message);
+  }finally{
+    authForgot.disabled = false; authForgot.textContent = label;
+  }
 }
 
 function openAuth(mode){
@@ -439,6 +474,7 @@ authForm.addEventListener('submit', async e=>{
   }
 });
 document.getElementById('authcancel').onclick=()=>closeAuth(null);
+authForgot.onclick=()=>requestReset();
 authSwapBtn.onclick=()=>{ authMode = authMode==='signup' ? 'signin' : 'signup'; paintAuthMode(); authEmail.focus(); };
 authEl.addEventListener('keydown', e=>{ if(e.key==='Escape'){ e.preventDefault(); closeAuth(null); } });
 
