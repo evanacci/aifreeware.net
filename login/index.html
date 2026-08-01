@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign in</title>
+<meta name="description" content="Sign in to aifreeware, so the browser terminal remembers where you stopped.">
+<meta name="robots" content="noindex">
+
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<meta name="theme-color" content="#171717">
+<script src="/theme.js"></script>
+<style>
+  :root{
+    --bg:#171717;
+    --lime:#e2f79c;
+    --lime:var(--accent,#e2f79c);
+    --gray:#8a8a8a;
+    --gray-dim:#5a5a5a;
+    --red:#ff8d8d;
+    --pink:rgb(255,141,197);
+    --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace;
+    --rule:rgba(226,247,156,0.14);
+    --rule:color-mix(in srgb, var(--lime) 14%, transparent);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;min-height:100%}
+  body{
+    background:var(--bg);color:var(--gray);
+    font-family:var(--mono);font-size:13.5px;line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+    display:flex;flex-direction:column;min-height:100dvh;
+  }
+  .chrome{
+    flex:0 0 auto;border-bottom:1px solid var(--rule);
+    font-size:11.5px;color:var(--gray-dim);letter-spacing:0.06em;
+  }
+  .chrome .wrap{max-width:960px;margin:0 auto;padding:10px 5vw}
+  .chrome a{color:var(--lime);text-decoration:none}
+  .chrome a:hover{text-decoration:underline;text-underline-offset:3px}
+
+  main{flex:1 1 auto;display:flex;align-items:center;justify-content:center;padding:24px 16px}
+  .box{width:min(30rem,100%);border:1px solid var(--rule)}
+  .head{
+    padding:11px 18px;border-bottom:1px solid var(--rule);
+    font-size:11.5px;letter-spacing:0.06em;color:var(--gray-dim);
+  }
+  .head b{color:var(--lime);font-weight:400}
+  .body{padding:20px 18px;display:grid;gap:1rem}
+  label{display:grid;gap:0.35rem;font-size:11.5px;letter-spacing:0.05em;color:var(--gray-dim)}
+  input{
+    background:transparent;border:1px solid var(--rule);color:var(--gray);
+    font:inherit;font-size:13.5px;padding:0.6em 0.7em;outline:0;caret-color:var(--lime);
+  }
+  input:focus{border-color:var(--lime);color:var(--lime)}
+  .row{display:flex;gap:0.6rem;align-items:center;flex-wrap:wrap}
+  .btn{
+    background:transparent;border:1px solid var(--lime);color:var(--lime);
+    font:inherit;font-size:12px;letter-spacing:0.05em;padding:0.6em 1.1em;cursor:pointer;
+  }
+  .btn:hover{background:var(--lime);color:var(--on-accent,var(--bg))}
+  .btn[disabled]{opacity:0.45;cursor:default}
+  .btn[disabled]:hover{background:transparent;color:var(--lime)}
+  .linkbtn{
+    background:transparent;border:0;padding:0;cursor:pointer;font:inherit;font-size:11.5px;
+    color:var(--gray-dim);text-decoration:underline;text-underline-offset:3px;
+  }
+  .linkbtn:hover{color:var(--lime)}
+  #forgot{margin-left:auto}
+  #forgot[hidden]{display:none}
+  .msg{font-size:12.5px;line-height:1.6;min-height:1.2em}
+  .msg:empty{display:none}
+  .msg.err{color:var(--red)}
+  .msg.ok{color:var(--lime)}
+  .hint{font-size:12px;color:var(--gray-dim);margin:0}
+  .swap{
+    margin:0;font-size:12px;color:var(--gray-dim);
+    border-top:1px solid var(--rule);padding:11px 18px;
+  }
+  a.plain{color:var(--gray);text-decoration:underline;text-underline-offset:3px}
+  a.plain:hover{color:var(--lime)}
+  footer{
+    flex:0 0 auto;border-top:1px solid var(--rule);
+    padding:18px;text-align:center;
+    font-size:9px;letter-spacing:0.05em;color:rgba(255,255,255,0.2);
+  }
+  footer a{color:inherit;text-decoration:none;transition:color 0.4s ease}
+  footer a:hover{color:var(--pink)}
+  input:focus-visible,.btn:focus-visible,.linkbtn:focus-visible,a:focus-visible{
+    outline:2px solid var(--lime);outline-offset:2px;
+  }
+</style>
+</head>
+<body>
+
+<script src="/bar.js" defer></script>
+
+<div class="chrome"><div class="wrap"><a href="/">aifreeware.net</a> <span>/ account</span></div></div>
+
+<main>
+  <form class="box" id="box" autocomplete="on">
+    <div class="head"><b id="title">sign in</b> <span id="why">so the browser terminal remembers where you stopped</span></div>
+    <div class="body">
+      <label>email
+        <input id="email" name="email" type="email" autocomplete="username"
+               spellcheck="false" autocapitalize="off" required>
+      </label>
+      <label>password
+        <input id="pw" name="password" type="password" autocomplete="current-password"
+               minlength="8" required>
+      </label>
+      <p class="msg err" id="msg" role="alert"></p>
+      <div class="row">
+        <button class="btn" type="submit" id="go">sign in</button>
+        <a class="linkbtn" href="/" style="text-decoration:none">cancel</a>
+        <button class="linkbtn" type="button" id="forgot">forgot your password?</button>
+      </div>
+    </div>
+    <p class="swap">No account yet? <button class="linkbtn" type="button" id="swap">create one</button></p>
+  </form>
+</main>
+
+<footer><p style="margin:0">by <a href="https://the9ines.com">the9ines</a></p></footer>
+
+<script>
+const el = id => document.getElementById(id);
+const msg = el('msg'), go = el('go'), email = el('email'), pw = el('pw'),
+      forgot = el('forgot'), swap = el('swap');
+
+// Where to land after signing in. The account only matters inside the terminal,
+// so that is the default, but a caller can send someone back where they were.
+const NEXT = (function(){
+  var n = new URLSearchParams(location.search).get('next');
+  return (n && n.charAt(0) === '/' && n.charAt(1) !== '/') ? n : '/run/';
+})();
+
+let mode = 'signin';
+
+function say(text, kind){ msg.textContent = text; msg.className = 'msg ' + (kind || 'err'); }
+
+function paint(){
+  const up = mode === 'signup';
+  el('title').textContent = up ? 'create an account' : 'sign in';
+  el('why').textContent = up
+    ? 'free, and only so your work follows you to another machine'
+    : 'so the browser terminal remembers where you stopped';
+  go.textContent = up ? 'create account' : 'sign in';
+  pw.autocomplete = up ? 'new-password' : 'current-password';
+  swap.previousSibling.textContent = up ? 'Already have one? ' : 'No account yet? ';
+  swap.textContent = up ? 'sign in' : 'create one';
+  forgot.hidden = up;
+  say('');
+}
+
+async function api(path, body){
+  const res = await fetch('/api/auth' + path, {
+    method:'POST',
+    headers:{'content-type':'application/json'},
+    credentials:'same-origin',
+    body: JSON.stringify(body),
+  });
+  let d = null; try{ d = await res.json(); }catch{}
+  if(!res.ok){
+    const said = d && (d.message || d.error);
+    if(said) throw new Error(said);
+    throw new Error(res.status >= 500
+      ? 'The sign-in service is not responding. Try again in a moment.'
+      : 'The sign-in service turned that down (' + res.status + ').');
+  }
+  return d;
+}
+
+// Better Auth's messages are written for developers. These are the ones someone
+// can actually hit, said plainly.
+function plain(m){
+  m = String(m || '').toLowerCase();
+  if(m.includes('already exists') || m.includes('already registered'))
+    return 'That email already has an account. Try signing in instead.';
+  if(m.includes('invalid email') || m.includes('valid email'))
+    return 'That does not look like an email address.';
+  if(m.includes('invalid') && (m.includes('password') || m.includes('credential')))
+    return 'That email and password do not match.';
+  if(m.includes('password') && (m.includes('short') || m.includes('least') || m.includes('8')))
+    return 'Use at least 8 characters for the password.';
+  if(m.includes('failed to fetch') || m.includes('networkerror') || m.includes('load failed'))
+    return 'Could not reach the sign-in service. Check your connection.';
+  return m;
+}
+
+el('box').addEventListener('submit', async e => {
+  e.preventDefault();
+  const addr = email.value.trim(), pass = pw.value;
+  if(!addr || !pass) return;
+
+  const label = go.textContent;
+  say(''); go.disabled = true; go.textContent = 'working';
+  try{
+    if(mode === 'signup') await api('/sign-up/email', { email:addr, password:pass, name:addr.split('@')[0] });
+    else                  await api('/sign-in/email', { email:addr, password:pass });
+    location.href = NEXT;
+  }catch(err){
+    say(plain(err.message));
+    go.disabled = false; go.textContent = label;
+    pw.select();
+  }
+});
+
+swap.addEventListener('click', () => { mode = mode === 'signup' ? 'signin' : 'signup'; paint(); email.focus(); });
+
+// The reply is the same whether or not the address has an account, so this
+// cannot be used to find out who has one.
+forgot.addEventListener('click', async () => {
+  const addr = email.value.trim();
+  if(!addr){ say('Type your email address first, then ask for a reset.'); email.focus(); return; }
+  const label = forgot.textContent;
+  say(''); forgot.disabled = true; forgot.textContent = 'sending';
+  try{
+    await api('/request-password-reset', { email:addr, redirectTo:'/reset/' });
+    say('If ' + addr + ' has an account, a link to set a new password is on its way. It works once and expires in an hour.', 'ok');
+  }catch(err){
+    say(plain(err.message));
+  }finally{
+    forgot.disabled = false; forgot.textContent = label;
+  }
+});
+
+// Already signed in? Nothing to do here.
+fetch('/api/auth/get-session', { credentials:'same-origin' })
+  .then(r => r.ok ? r.json() : null)
+  .then(d => {
+    if(!d || !d.user) return;
+    el('title').textContent = 'already signed in';
+    el('why').textContent = '';
+    document.querySelector('.body').innerHTML =
+      '<p class="msg ok">Signed in as ' + String(d.user.email).replace(/[<>&"]/g,'') + '</p>'
+    + '<p class="hint">Your saved work follows you to any machine you sign in on.</p>'
+    + '<p class="row"><a class="btn" style="text-decoration:none" href="/run/">Go to the terminal</a>'
+    + '<button class="linkbtn" type="button" id="out">sign out</button></p>';
+    document.querySelector('.swap').remove();
+    el('out').addEventListener('click', async () => {
+      try{ await api('/sign-out', {}); }catch{}
+      location.reload();
+    });
+  })
+  .catch(() => {});
+
+paint();
+email.focus();
+</script>
+</body>
+</html>

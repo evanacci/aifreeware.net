@@ -97,6 +97,10 @@
     if (fav) fav.href = icon;
 
     // These only exist once the body is parsed, so the head-time call skips them.
+    // cp-theme.js repoints the bar's mark from inside apply() and the copied bar
+    // relies on that, so this does the same rather than making the bar patch it.
+    var mark = document.getElementById('cwCookie');
+    if (mark) mark.src = icon;
     var label = document.getElementById('cwName');
     if (label) label.textContent = c[0];
     var tray = document.getElementById('cwMenu');
