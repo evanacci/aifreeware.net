@@ -182,7 +182,23 @@ self.onmessage = async (e) => {
         if(p.startsWith('work/')) PRISTINE[p] = content;
       }
       await py.runPythonAsync(PRELUDE(ROOT));
-      send({ type:'ready', files: Object.keys(bundle.files).length, stdin: !!ctl });
+
+      // urllib opens raw TCP sockets, which WASM does not have, so week 9 of
+      // py-skool could not call an API at all. pyodide_http re-points urllib at
+      // the browser's own HTTP stack. Whether a given response can then be read
+      // is down to CORS at the far end; api.github.com, which is what the course
+      // actually calls, allows it. Best effort: a CDN hiccup here should cost
+      // network access, not the whole terminal.
+      let net = false;
+      try{
+        await py.loadPackage('pyodide-http');
+        await py.runPythonAsync('import pyodide_http; pyodide_http.patch_all()');
+        net = true;
+      }catch(err){
+        console.warn('pyodide-http unavailable:', err.message);
+      }
+
+      send({ type:'ready', files: Object.keys(bundle.files).length, stdin: !!ctl, net });
     }catch(err){
       send({ type:'failed', error: String(err.message || err) });
     }

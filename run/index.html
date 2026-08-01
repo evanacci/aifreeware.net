@@ -216,10 +216,10 @@ const COURSES = {
                  first:'work/week-01/ex01_variable_explorer.py', home:true, note:''},
   'py-skool':   {pkg:'py_skool',   title:'PY Skool',   weeks:9,
                  first:'work/week-01/ex01_command_dispatcher.py', home:true,
-                 note:'Week 9 calls real web APIs, which a browser tab blocks. Download the course for those.'},
+                 note:'Three week 8 exercises run other programs with subprocess, which a browser tab cannot do. Download the course for those. Everything else runs here, including the week 9 API work.'},
   'ai-skool':   {pkg:'ai_skool',   title:'AI Skool',   weeks:12,
                  first:'work/week-01/ex01_async_basics.py', home:false,
-                 note:'Week 11 and one week 12 exercise reach the network and the shell. Download the course for those.'}
+                 note:'One week 12 exercise runs another program with subprocess, which a browser tab cannot do. Download the course for that one. Everything else runs here.'}
 };
 const params = new URLSearchParams(location.search);
 const COURSE = COURSES[params.get('c')] ? params.get('c') : 'code-skool';
@@ -621,6 +621,14 @@ async function runPy(code){
     if(/KeyboardInterrupt/.test(error) || (interrupted && /EOFError/.test(error))){
       line('^C','dim');
       return 130;
+    }
+    // WASM has no process model at all, so this one cannot be shimmed the way
+    // sockets were. Say so plainly rather than showing an errno.
+    if(/does not support processes|Errno 138/i.test(error)){
+      line('This exercise runs another program with subprocess, and a browser tab '
+         + 'has no processes to run.','err');
+      line('Download the course from aifreeware.net for this one. Everything else works here.','dim');
+      return 1;
     }
     if(/EOFError/.test(error) && !stdinReady){
       line('This program asks you a question with input(), and this browser '
