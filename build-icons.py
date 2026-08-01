@@ -19,8 +19,27 @@ import subprocess
 
 OUT = Path(__file__).parent
 BG = "#171717"
-LIME = "#e2f79c"
 SHADOW_OPACITY = 0.30
+
+# Must stay in step with the CW table in theme.js. Only the accent moves; the art
+# and the background never do. acid-rain is first because it is the default and
+# the one that gets the unsuffixed filenames.
+COLOURWAYS = [
+    ("acid-rain", "#e2f79c"),
+    ("berry",     "#FF8DC5"),
+    ("punch",     "#F2379D"),
+    ("neon",      "#E11CFF"),
+    ("orchid",    "#E57DFC"),
+    ("lagoon",    "#1CFFFF"),
+    ("reef",      "#37F2D2"),
+    ("jade",      "#24FFCC"),
+    ("acid",      "#1CFF7E"),
+    ("sprout",    "#80FFC0"),
+    ("cobalt",    "#027CF6"),
+    ("glacier",   "#7DFCE0"),
+    ("taffy",     "#FC7DB2"),
+]
+DEFAULT_CW, LIME = COLOURWAYS[0]
 
 # Lifted verbatim from index.html so the icon can never drift from the wordmark.
 AI = """\
@@ -66,7 +85,7 @@ def cells(art, detail="full"):
                 yield c, r, "shadow"
 
 
-def svg(art, cell_w=6, cell_h=10, pad=6, detail="full", bg=BG, square=False):
+def svg(art, cell_w=6, cell_h=10, pad=6, detail="full", bg=BG, square=False, accent=LIME):
     """Draw the art, trimmed to its ink so padding means the same thing either way.
 
     square centres the ink in a square canvas, which is what an icon needs; an
@@ -100,8 +119,8 @@ def svg(art, cell_w=6, cell_h=10, pad=6, detail="full", bg=BG, square=False):
     if bg:
         parts.append(f'<rect width="{w}" height="{h}" fill="{bg}"/>')
     if shadow:
-        parts.append(f'<g fill="{LIME}" fill-opacity="{SHADOW_OPACITY}">' + "".join(shadow) + "</g>")
-    parts.append(f'<g fill="{LIME}">' + "".join(solid) + "</g>")
+        parts.append(f'<g fill="{accent}" fill-opacity="{SHADOW_OPACITY}">' + "".join(shadow) + "</g>")
+    parts.append(f'<g fill="{accent}">' + "".join(solid) + "</g>")
     parts.append("</svg>")
     return "\n".join(parts), w, h
 
@@ -118,29 +137,36 @@ def main():
     (OUT / "assets").mkdir(exist_ok=True)
     a = OUT / "assets"
 
-    print("favicon")
-    full, _, _ = svg(AI, cell_w=6, cell_h=10, pad=7, square=True)
-    simple, _, _ = svg(AI, cell_w=6, cell_h=10, pad=7, detail="simple", square=True)
+    # One favicon and one social card per colourway. The art is identical in
+    # every one; the accent is the only thing that differs. theme.js repoints the
+    # icon link, and /api/og picks a card per scrape.
+    print(f"{len(COLOURWAYS)} colourways")
+    for name, accent in COLOURWAYS:
+        full, _, _ = svg(AI, cell_w=6, cell_h=10, pad=7, square=True, accent=accent)
+        simple, _, _ = svg(AI, cell_w=6, cell_h=10, pad=7, detail="simple", square=True, accent=accent)
 
-    # The SVG is the one a modern browser reaches for, and it has to hold up in
-    # a 16px tab as well as a bookmark bar. Below about 24px the bevel stops
-    # being depth and starts filling the A's counter, so the vector carries the
-    # simplified mark and the bevel is kept for sizes that can show it.
+        # The SVG is what a modern browser reaches for and it has to hold up in a
+        # 16px tab as well as a bookmark bar. Below about 24px the bevel stops
+        # being depth and starts filling the A's counter, so the vector carries
+        # the simplified mark and the bevel is kept for sizes that can show it.
+        (a / f"favicon-{name}.svg").write_text(simple)
+        make_og(a / f"og-{name}.png", accent, quiet=True)
+        print(f"  {name:10} {accent}   favicon-{name}.svg  og-{name}.png")
+
+    # The default also gets the unsuffixed names, which are what the markup falls
+    # back to before theme.js runs and what a crawler gets if /api/og is down.
+    full, _, _ = svg(AI, cell_w=6, cell_h=10, pad=7, square=True, accent=LIME)
+    simple, _, _ = svg(AI, cell_w=6, cell_h=10, pad=7, detail="simple", square=True, accent=LIME)
     (a / "favicon.svg").write_text(simple)
-    print("  favicon.svg   simplified, crisp at any size")
-
     png(simple, a / "favicon-16.png", 16, 16)
     png(full, a / "favicon-32.png", 32, 32)
     png(full, a / "apple-touch-icon.png", 180, 180)
-
     subprocess.run(
         ["magick", str(a / "favicon-16.png"), str(a / "favicon-32.png"),
          str(OUT / "favicon.ico")], check=True,
     )
-    print("  favicon.ico  16+32")
-
-    print("social card")
-    make_og(a / "og.png")
+    make_og(a / "og.png", LIME)
+    print(f"\ndefaults ({DEFAULT_CW}): favicon.svg, favicon.ico, apple-touch-icon.png, og.png")
 
 
 def mono(size):
@@ -153,7 +179,7 @@ def mono(size):
     return None
 
 
-def make_og(path):
+def make_og(path, accent=LIME, quiet=False):
     """1200x630 card: the site's own header rule over the hero lockup."""
     import io
     from PIL import Image, ImageDraw
@@ -165,8 +191,8 @@ def make_og(path):
     # FREEWARE is 66 cols and sets the width. AI is centred over it, the same
     # way .lockup centres the two pre blocks in the hero.
     cell_w, cell_h = 14, 23
-    ai_svg, ai_w, ai_h = svg(AI, cell_w=cell_w, cell_h=cell_h, pad=0, bg=None)
-    fw_svg, fw_w, fw_h = svg(FREEWARE, cell_w=cell_w, cell_h=cell_h, pad=0, bg=None)
+    ai_svg, ai_w, ai_h = svg(AI, cell_w=cell_w, cell_h=cell_h, pad=0, bg=None, accent=accent)
+    fw_svg, fw_w, fw_h = svg(FREEWARE, cell_w=cell_w, cell_h=cell_h, pad=0, bg=None, accent=accent)
 
     card = Image.new("RGB", (W, H), BG)
     d = ImageDraw.Draw(card)
@@ -188,27 +214,39 @@ def make_og(path):
         tw = d.textbbox((0, 0), tagline, font=f_tag)[2]
         d.text(((W - tw) // 2, top + ai_h + fw_h + GAP), tagline, font=f_tag, fill="#8a8a8a")
 
-    draw_chrome(d, W, CHROME_H)
+    draw_chrome(d, W, CHROME_H, accent)
     card.save(path)
-    print(f"  {path.name}  {W}x{H}")
+    if not quiet:
+        print(f"  {path.name}  {W}x{H}")
 
 
-def draw_chrome(d, W, chrome_h):
+def rule_tone(accent):
+    """The hairline under the chrome is the accent knocked well back, the same as
+    --rule in the CSS. Mixed toward the background rather than hardcoded, so it
+    stays in family for every colourway."""
+    s = accent.lstrip("#")
+    r, g, b = (int(s[i:i + 2], 16) for i in (0, 2, 4))
+    br, bg_, bb = (int(BG.lstrip("#")[i:i + 2], 16) for i in (0, 2, 4))
+    mix = lambda c, base: round(base + (c - base) * 0.22)
+    return f"#{mix(r, br):02x}{mix(g, bg_):02x}{mix(b, bb):02x}"
+
+
+def draw_chrome(d, W, chrome_h, accent=LIME):
     """The header strip from the site: host on the left, framing on the right."""
     f = mono(21)
     if not f:
         return
     pad, base = 54, chrome_h // 2 - 13
-    d.text((pad, base), "aifreeware.net", font=f, fill=LIME)
+    d.text((pad, base), "aifreeware.net", font=f, fill=accent)
 
     # The blinking block cursor that follows the host name in the site chrome.
     hw = d.textbbox((0, 0), "aifreeware.net", font=f)[2]
-    d.rectangle([pad + hw + 7, base + 2, pad + hw + 18, base + 24], fill=LIME)
+    d.rectangle([pad + hw + 7, base + 2, pad + hw + 18, base + 24], fill=accent)
 
     right = "free / open source"
     rw = d.textbbox((0, 0), right, font=f)[2]
     d.text((W - pad - rw, base), right, font=f, fill="#5a5a5a")
-    d.rectangle([0, chrome_h, W, chrome_h], fill="#35401f")
+    d.rectangle([0, chrome_h, W, chrome_h], fill=rule_tone(accent))
 
 
 if __name__ == "__main__":

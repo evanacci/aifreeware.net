@@ -17,20 +17,28 @@
 <meta property="og:url" content="https://aifreeware.net/">
 <meta property="og:title" content="aifreeware.net">
 <meta property="og:description" content="Free software, built and given away. Download a course and keep it forever, or run it in your browser.">
-<meta property="og:image" content="https://aifreeware.net/assets/og.png">
+<meta property="og:image" content="https://aifreeware.net/api/og">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="AI FREEWARE in block letters on a dark terminal background">
 <meta name="twitter:card" content="summary_large_image">
+
+<!-- Synchronous on purpose. Deferring means the default colourway paints first
+     and the chosen one snaps in after, which is the tell of a cheap picker. -->
+<script src="/theme.js"></script>
 <style>
   :root{
     --bg:#171717;
+    /* theme.js sets --accent. The lime literal is the fallback if it never runs,
+       so the site is never unstyled. Everything downstream still says --lime. */
     --lime:#e2f79c;
+    --lime:var(--accent,#e2f79c);
     --gray:#8a8a8a;
     --gray-dim:#5a5a5a;
     --pink:rgb(255,141,197);
     --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace;
     --rule:rgba(226,247,156,0.14);
+    --rule:color-mix(in srgb, var(--lime) 14%, transparent);
   }
   *{box-sizing:border-box}
   html,body{margin:0;padding:0}
@@ -122,7 +130,7 @@
     grid-template-columns:1fr;
     gap:1.4rem;
     padding:2.6rem 0;
-    border-bottom:1px dashed rgba(226,247,156,0.10);
+    border-bottom:1px dashed color-mix(in srgb, var(--lime) 10%, transparent);
   }
   .course:last-of-type{border-bottom:0}
   .course .meta{
@@ -150,7 +158,7 @@
     transition:background 0.18s ease,color 0.18s ease;
   }
   .cmd::before{content:"↓";font-size:1.05em}
-  .cmd:hover,.cmd:focus-visible{background:var(--lime);color:var(--bg)}
+  .cmd:hover,.cmd:focus-visible{background:var(--lime);color:var(--on-accent,var(--bg))}
   .cmd.run{margin-left:0.6rem;border-color:var(--rule);color:var(--gray)}
   .cmd.run::before{content:"$"}
   .cmd.run:hover,.cmd.run:focus-visible{border-color:var(--lime);background:transparent;color:var(--lime)}
@@ -173,7 +181,7 @@
   }
   .steps code{
     color:var(--lime);
-    background:rgba(226,247,156,0.08);
+    background:color-mix(in srgb, var(--lime) 8%, transparent);
     padding:0.1em 0.42em;
   }
   /* ---- pending items ---- */
@@ -181,7 +189,7 @@
   .pending li{
     display:grid;gap:0.2rem 1.6rem;
     padding:1.1rem 0;
-    border-bottom:1px dashed rgba(226,247,156,0.10);
+    border-bottom:1px dashed color-mix(in srgb, var(--lime) 10%, transparent);
   }
   .pending li:last-child{border-bottom:0}
   .pname{
@@ -255,6 +263,8 @@
 </style>
 </head>
 <body>
+
+<script src="/bar.js" defer></script>
 
 <div class="wrap">
 

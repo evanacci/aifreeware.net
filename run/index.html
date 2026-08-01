@@ -9,6 +9,9 @@
 <link rel="icon" href="/favicon.ico" sizes="32x32">
 <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<!-- theme only. No utility bar here: the terminal stays immersive, so it
+     honours a saved colourway but offers no chrome to change it. -->
+<script src="/theme.js"></script>
 <meta name="theme-color" content="#171717">
 
 <meta property="og:type" content="website">
@@ -24,12 +27,14 @@
   :root{
     --bg:#171717;
     --lime:#e2f79c;
+    --lime:var(--accent,#e2f79c);
     --gray:#8a8a8a;
     --gray-dim:#5a5a5a;
     --red:#ff8d8d;
     --pink:rgb(255,141,197);
     --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace;
     --rule:rgba(226,247,156,0.14);
+    --rule:color-mix(in srgb, var(--lime) 14%, transparent);
   }
   *{box-sizing:border-box}
   html,body{margin:0;padding:0;height:100%}
@@ -61,7 +66,7 @@
   #screen .err{color:var(--red)}
   #screen .dim{color:var(--gray-dim)}
   #screen a.link{color:var(--lime);text-decoration:underline;text-underline-offset:3px}
-  #screen a.link:hover{background:var(--lime);color:var(--bg);text-decoration:none}
+  #screen a.link:hover{background:var(--lime);color:var(--on-accent,var(--bg));text-decoration:none}
 
   .line{display:flex;align-items:baseline;padding:0 16px 16px;flex:0 0 auto}
   .ps1{color:var(--lime);white-space:pre;flex:0 0 auto}
@@ -92,7 +97,7 @@
     font:inherit;font-size:11.5px;letter-spacing:0.05em;
     padding:0.4em 0.9em;cursor:pointer;
   }
-  .btn:hover{background:var(--lime);color:var(--bg)}
+  .btn:hover{background:var(--lime);color:var(--on-accent,var(--bg))}
   .btn.ghost{border-color:var(--rule);color:var(--gray-dim)}
   .btn.ghost:hover{background:transparent;color:var(--gray);border-color:var(--gray-dim)}
   .btn[disabled]{opacity:0.45;cursor:default}
@@ -158,7 +163,7 @@
   #authswap button:focus-visible,#authbody input:focus-visible{
     outline:2px solid var(--lime);outline-offset:2px;
   }
-  ::selection{background:var(--lime);color:var(--bg)}
+  ::selection{background:var(--lime);color:var(--on-accent,var(--bg))}
 </style>
 </head>
 <body>
@@ -166,7 +171,7 @@
 <div class="chrome">
   <span><a href="/"><span class="host">aifreeware.net</span></a> <span class="dim">/ <span id="cname">code-skool</span></span></span>
   <span class="right">
-    <span id="acct">guest <button type="button" id="signin">sign in</button></span>
+    <span id="acct">guest</span>
     <span id="status">booting</span>
   </span>
 </div>
@@ -375,13 +380,9 @@ function paintAccount(){
     out.onclick=()=>doLogout();
     el.append(who, document.createTextNode(' '), out);
   }else{
-    const b=document.createElement('button');
-    b.type='button'; b.textContent='sign in';
-    b.onclick=async ()=>{
-      const u=await openAuth('signin');
-      if(u){ line('Signed in as '+u.email,'dim'); await mergeAccountWork(); }
-    };
-    el.append(document.createTextNode('guest '), b);
+    // No button. Signing in here is a typed command, the way everything else in
+    // the terminal is; the clickable version lives in the landing page bar.
+    el.textContent = 'guest';
   }
 }
 
