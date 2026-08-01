@@ -60,6 +60,8 @@
   #screen .u{color:var(--lime)}          /* echoed user command */
   #screen .err{color:var(--red)}
   #screen .dim{color:var(--gray-dim)}
+  #screen a.link{color:var(--lime);text-decoration:underline;text-underline-offset:3px}
+  #screen a.link:hover{background:var(--lime);color:var(--bg);text-decoration:none}
 
   .line{display:flex;align-items:baseline;padding:0 16px 16px;flex:0 0 auto}
   .ps1{color:var(--lime);white-space:pre;flex:0 0 auto}
@@ -227,6 +229,7 @@ const INFO   = COURSES[COURSE];
 const PKG    = INFO.pkg;
 const ROOT   = '/' + COURSE;
 const LSKEY  = 'aifw:' + COURSE + ':work';
+const ZIP    = 'https://github.com/evanacci/' + COURSE + '/archive/refs/heads/main.zip';
 // Pyodide itself is loaded by run/py-worker.js, not here.
 
 const screenEl = document.getElementById('screen');
@@ -276,6 +279,18 @@ function write(text, cls){
   screenEl.scrollTop = screenEl.scrollHeight;
 }
 const line = (t,c)=>write((t??'')+'\n',c);
+
+// write() escapes everything it prints, which is the right default for program
+// output. A link has to be built as a real element instead.
+function writeLink(url){
+  const a=document.createElement('a');
+  a.href=url; a.target='_blank'; a.rel='noopener';
+  a.textContent=url;
+  a.className='link';
+  screenEl.appendChild(a);
+  screenEl.appendChild(document.createTextNode('\n'));
+  screenEl.scrollTop=screenEl.scrollHeight;
+}
 
 /* ---------- virtual filesystem helpers ---------- */
 const norm = p => {
@@ -627,14 +642,15 @@ async function runPy(code){
     if(/does not support processes|Errno 138/i.test(error)){
       line('This exercise runs another program with subprocess, and a browser tab '
          + 'has no processes to run.','err');
-      line('Download the course from aifreeware.net for this one. Everything else works here.','dim');
+      line('Type download to get the course and run this one on your own machine. '
+         + 'Everything else works here.','dim');
       return 1;
     }
     if(/EOFError/.test(error) && !stdinReady){
       line('This program asks you a question with input(), and this browser '
          + 'cannot type answers back.','err');
-      line('Download the course from aifreeware.net to run this one. Everything '
-         + 'that does not use input() works here.','dim');
+      line('Type download to get the course and run this one on your own machine. '
+         + 'Everything that does not use input() works here.','dim');
       return 1;
     }
     line(error.split('\n').slice(-14).join('\n').trim(),'err');
@@ -666,6 +682,7 @@ Commands
   python -m ${PKG} [args]
                       open the course, or a week
   clear               clear the screen
+  download            get this course to keep, and run it on your own machine
   reset               throw away your saved work and start fresh
   help                this
 
@@ -764,6 +781,13 @@ async function exec(raw){
       if(!USER) return line('Not signed in. Type login first.','err');
       const n=await pushWork();
       if(n) line('Saved '+n+' file'+(n===1?'':'s')+' to your account.','dim');
+      return;
+    }
+
+    case 'download': {
+      line('Download '+COURSE+' and keep it. No account, works offline, yours forever.','dim');
+      writeLink(ZIP);
+      line('Unzip it anywhere, then double click install-mac.command on a Mac or\ninstall-windows.bat on Windows. You need Python 3.11 or newer.','dim');
       return;
     }
 
@@ -951,7 +975,8 @@ document.addEventListener('mouseup',()=>{
     worker.onerror = ev => {
       statusEl.textContent='failed';
       line('\nThe Python worker could not start: '+(ev.message||'unknown error'),'err');
-      line('You can still download the course and run it locally from aifreeware.net.','dim');
+      line('The course still runs on your own machine. Download it here:','dim');
+      writeLink(ZIP);
     };
 
     const booted = new Promise((res, rej) => {
@@ -999,7 +1024,10 @@ document.addEventListener('mouseup',()=>{
   }catch(e){
     statusEl.textContent='failed';
     line('\n'+e.message,'err');
-    line('You can still download the course and run it locally from aifreeware.net.','dim');
+    // The prompt never opens after a failed boot, so the download command is
+    // unreachable here. Print the link itself.
+    line('The course still runs on your own machine. Download it here:','dim');
+    writeLink(ZIP);
   }
 })();
 </script>
