@@ -56,6 +56,27 @@
   status = 404
   force = true
 
+# /ub is a verbatim copy of the shared utility-bar module, kept whole so it can
+# be diffed and re-copied. Its .js files are the site's chrome and must serve.
+# These three are the module's own tooling and docs, not site files, so they get
+# the same treatment as the build scripts above. /ub/demo.html would also be
+# broken here: it loads the module from the root, which is not where it lives.
+[[redirects]]
+  from = "/ub/README.md"
+  to = "/"
+  status = 404
+  force = true
+[[redirects]]
+  from = "/ub/build.sh"
+  to = "/"
+  status = 404
+  force = true
+[[redirects]]
+  from = "/ub/demo.html"
+  to = "/"
+  status = 404
+  force = true
+
 # Cross-origin isolation, which is what makes SharedArrayBuffer available. The
 # browser terminal needs it so input() can genuinely block the Python worker and
 # so a runaway loop can be interrupted. Scoped to /run/ on purpose: the landing

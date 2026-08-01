@@ -11,12 +11,21 @@
 <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
 <meta name="theme-color" content="#171717">
-<script src="/theme.js"></script>
+<!-- Synchronous on purpose. Deferring means the default colourway paints first
+     and the chosen one snaps in after, which is the tell of a cheap picker. -->
+<script src="/ub-config.js"></script>
+<script src="/ub/theme.js"></script>
 <style>
   :root{
     --bg:#171717;
     --lime:#e2f79c;
     --lime:var(--accent,#e2f79c);
+    /* The engine names the readable ink --ub-on-accent. Aliased to the name the
+       site has always used, same as --lime above. */
+    --on-accent:var(--ub-on-accent,var(--bg));
+    /* Line the bar's inner wrap up with .chrome .wrap below. */
+    --ub-max:960px;
+    --ub-pad:5vw;
     --gray:#8a8a8a;
     --gray-dim:#5a5a5a;
     --red:#ff8d8d;
@@ -95,7 +104,9 @@
 </head>
 <body>
 
-<script src="/bar.js" defer></script>
+<!-- The shared bar: the frame plus the colour piece. Config is /ub-config.js. -->
+<script src="/ub/utilbar.js" defer></script>
+<script src="/ub/utilbar-colour.js" defer></script>
 
 <div class="chrome"><div class="wrap"><a href="/">aifreeware.net</a> <span>/ account</span></div></div>
 

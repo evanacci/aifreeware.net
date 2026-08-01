@@ -21,7 +21,7 @@ OUT = Path(__file__).parent
 BG = "#171717"
 SHADOW_OPACITY = 0.30
 
-# Must stay in step with the CW table in theme.js. Only the accent moves; the art
+# Must stay in step with the palette in ub-config.js. Only the accent moves; the art
 # and the background never do. acid-rain is first because it is the default and
 # the one that gets the unsuffixed filenames.
 COLOURWAYS = [
@@ -138,8 +138,8 @@ def main():
     a = OUT / "assets"
 
     # One favicon and one social card per colourway. The art is identical in
-    # every one; the accent is the only thing that differs. theme.js repoints the
-    # icon link, and /api/og picks a card per scrape.
+    # every one; the accent is the only thing that differs. /ub/theme.js repoints
+    # the icon link, and /api/og picks a card per scrape.
     print(f"{len(COLOURWAYS)} colourways")
     for name, accent in COLOURWAYS:
         full, _, _ = svg(AI, cell_w=6, cell_h=10, pad=7, square=True, accent=accent)
@@ -154,7 +154,7 @@ def main():
         print(f"  {name:10} {accent}   favicon-{name}.svg  og-{name}.png")
 
     # The default also gets the unsuffixed names, which are what the markup falls
-    # back to before theme.js runs and what a crawler gets if /api/og is down.
+    # back to before /ub/theme.js runs and what a crawler gets if /api/og is down.
     full, _, _ = svg(AI, cell_w=6, cell_h=10, pad=7, square=True, accent=LIME)
     simple, _, _ = svg(AI, cell_w=6, cell_h=10, pad=7, detail="simple", square=True, accent=LIME)
     (a / "favicon.svg").write_text(simple)

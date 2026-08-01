@@ -9,9 +9,13 @@
 <link rel="icon" href="/favicon.ico" sizes="32x32">
 <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
-<!-- theme only. No utility bar here: the terminal stays immersive, so it
-     honours a saved colourway but offers no chrome to change it. -->
-<script src="/theme.js"></script>
+<!-- Theme engine only. No utility bar here: the terminal stays immersive, so it
+     honours a saved colourway but offers no chrome to change it. /ub-config.js
+     is the shared config; only its `colour` section matters on this page, and
+     neither /ub/utilbar.js nor /ub/utilbar-colour.js is loaded. Synchronous on
+     purpose, so the saved colourway is applied before the first paint. -->
+<script src="/ub-config.js"></script>
+<script src="/ub/theme.js"></script>
 <meta name="theme-color" content="#171717">
 
 <meta property="og:type" content="website">
@@ -28,6 +32,9 @@
     --bg:#171717;
     --lime:#e2f79c;
     --lime:var(--accent,#e2f79c);
+    /* The engine names the readable ink --ub-on-accent. Aliased to the name the
+       site has always used, same as --lime above. */
+    --on-accent:var(--ub-on-accent,var(--bg));
     --gray:#8a8a8a;
     --gray-dim:#5a5a5a;
     --red:#ff8d8d;

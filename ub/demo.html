@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>utility-bar demo</title>
+<link rel="icon" type="image/svg+xml" href="/icons/crumbproof-icon-berry.svg" />
+<style>
+  :root {
+    --ub-surface:#1A1824; --ub-line:#2C2939; --ub-line-soft:#221F2C; --ub-ink-2:#14121B;
+    --ub-text:#ECEAF2; --ub-muted:#6C6880; --ub-max:1180px; --ub-pad:28px;
+    --ub-sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body { background:#0F0E13; color:#ECEAF2; font-family:var(--ub-sans); min-height:100vh; }
+  main { max-width:720px; margin:0 auto; padding:72px 28px; }
+  h1 { font-size:clamp(28px,5vw,42px); letter-spacing:-.03em; }
+  .accent { color: var(--accent, #FF8DC5); }
+  .pill { display:inline-block; margin-top:22px; padding:12px 22px; border-radius:999px;
+    background:var(--accent,#FF8DC5); color:var(--on-accent,#160f16); font-weight:700; text-decoration:none; }
+  p { margin-top:16px; color:#948FA6; line-height:1.6; }
+  code { font-family:ui-monospace,Menlo,monospace; background:#14121B; padding:2px 6px; border-radius:5px; }
+</style>
+</head>
+<body>
+  <!-- 1) One config object, sections for each piece. -->
+  <script>
+    window.UtilBar = {
+      home: '/',
+      order: ['status', 'language', 'search', 'extras', 'signin'],  // reorder knob — status pulled to the front
+      colour: {
+        accentVar: '--accent',
+        icon: '/icons/crumbproof-icon-{name}.svg',
+        store: 'demo-cw',
+        specimen: ['Consent', 'you', 'can', 'prove.'],
+        palette: [
+          ['berry', '#FF8DC5', '#FF8DC5', '#8C235A'], ['punch', '#F2379D', '#FFF6D6', '#BE2D2D'],
+          ['neon', '#E11CFF', '#7DFCE0', '#0F0FFF'], ['orchid', '#E57DFC', '#EBFFF5', '#620DE9'],
+          ['lagoon', '#1CFFFF', '#FFFF80', '#FF2E5C'], ['reef', '#37F2D2', '#FFF941', '#F973F9'],
+          ['jade', '#24FFCC', '#FFE250', '#D726FF'], ['acid', '#1CFF7E', '#80FFC0', '#463464'],
+          ['sprout', '#80FFC0', '#80FFC0', '#D726FF'], ['cobalt', '#027CF6', '#FF41E9', '#0F2BFF'],
+          ['glacier', '#7DFCE0', '#FDFFEB', '#02ADE6'], ['taffy', '#FC7DB2', '#FFE26C', '#000FDB'],
+          ['acid-rain', '#E2F79C', '#E2F79C', '#5C7E2C']
+        ]
+      },
+      languages: [
+        { code: 'en', label: 'English', href: '#en' }, { code: 'de', label: 'Deutsch', href: '#de' },
+        { code: 'fr', label: 'Français', href: '#fr' }, { code: 'nl', label: 'Nederlands', href: '#nl' }
+      ],
+      allRegions: '#regions',
+      search: { placeholder: 'Search', action: '#q={q}', width: 130 },
+      status: { url: '/utilbar.js', label: 'Demo API', every: 15000 },   // pings a 200 -> shows Online
+      extras: [ { html: '<a id="acct" class="ub-link" href="#account">Account</a>' } ],
+      signin: { label: 'Sign in', href: '#signin' }
+    };
+    // a site paints its own account state once the bar exists
+    document.addEventListener('utilbar:ready', function () {
+      var el = document.getElementById('acct'); if (el) el.textContent = 'you@acme.com';
+    });
+  </script>
+
+  <!-- 2) Frame + theme, then only the pieces this site wants. -->
+  <script src="/theme.js" defer></script>
+  <script src="/utilbar.js" defer></script>
+  <script src="/utilbar-colour.js" defer></script>
+  <script src="/utilbar-language.js" defer></script>
+  <script src="/utilbar-search.js" defer></script>
+  <script src="/utilbar-status.js" defer></script>
+
+  <main>
+    <h1>A bar built from <span class="accent">snap-in pieces</span>.</h1>
+    <p>Colour tuner, language, search, a live status dot, an account chip, sign in — each its own file. Include only the ones a site needs; the rest never load. Open the cookie to recolour the whole page off <code>--accent</code>.</p>
+    <a class="pill" href="#">Themed button</a>
+  </main>
+</body>
+</html>

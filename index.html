@@ -25,14 +25,21 @@
 
 <!-- Synchronous on purpose. Deferring means the default colourway paints first
      and the chosen one snaps in after, which is the tell of a cheap picker. -->
-<script src="/theme.js"></script>
+<script src="/ub-config.js"></script>
+<script src="/ub/theme.js"></script>
 <style>
   :root{
     --bg:#171717;
-    /* theme.js sets --accent. The lime literal is the fallback if it never runs,
-       so the site is never unstyled. Everything downstream still says --lime. */
+    /* /ub/theme.js sets --accent. The lime literal is the fallback if it never
+       runs, so the site is never unstyled. Everything downstream says --lime. */
     --lime:#e2f79c;
     --lime:var(--accent,#e2f79c);
+    /* The engine names the readable ink --ub-on-accent. The site has always
+       called it --on-accent, so alias it the same way --lime is aliased. */
+    --on-accent:var(--ub-on-accent,var(--bg));
+    /* Line the bar's inner wrap up with .wrap below. */
+    --ub-max:960px;
+    --ub-pad:5vw;
     --gray:#8a8a8a;
     --gray-dim:#5a5a5a;
     --pink:rgb(255,141,197);
@@ -264,7 +271,11 @@
 </head>
 <body>
 
-<script src="/bar.js" defer></script>
+<!-- The shared bar: the frame plus the one piece this site wants. No language,
+     search or status here, so those files never load. Config is /ub-config.js,
+     already read by /ub/theme.js in the head. -->
+<script src="/ub/utilbar.js" defer></script>
+<script src="/ub/utilbar-colour.js" defer></script>
 
 <div class="wrap">
 
