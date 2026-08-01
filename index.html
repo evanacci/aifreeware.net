@@ -457,8 +457,21 @@
   (function () {
     document.querySelectorAll('pre.art').forEach(function (pre) {
       var lines = pre.textContent.replace(/^\n/, '').split('\n');
+
+      // Pad every row to the longest one. The source art has ragged line
+      // endings: in FREEWARE rows 2 and 3 are 64 characters where the rest are
+      // 66, because trailing spaces were trimmed. Each .row is a block and the
+      // hero is text-align:center, so a short row centres itself and lands one
+      // whole cell to the right of the others. That is the middle band of every
+      // letter sitting right of the top and bottom. build-icons.py already pads
+      // the same art, which is why the favicon and the social card are square
+      // and only the live hero was skewed.
+      var wide = 0;
+      lines.forEach(function (l) { if (l.length > wide) wide = l.length; });
+
       pre.textContent = '';
       lines.forEach(function (line) {
+        while (line.length < wide) line += ' ';
         var row = document.createElement('span');
         row.className = 'row';
         row.textContent = line + '\n';
