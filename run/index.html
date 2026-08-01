@@ -1000,6 +1000,8 @@ document.addEventListener('mouseup',()=>{
     worker.postMessage({
       type:'init', root:ROOT, sab: initSab, interrupt: interruptBuf,
       bundleUrl: new URL('./'+COURSE+'.json', location.href).href,
+      startHere: new URL('./start-here.md', location.href).href,
+      title: INFO.title, pkg: PKG, first: INFO.first,
     });
 
     const info = await booted;

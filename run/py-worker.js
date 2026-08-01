@@ -181,6 +181,25 @@ self.onmessage = async (e) => {
         py.FS.writeFile(full, content);
         if(p.startsWith('work/')) PRISTINE[p] = content;
       }
+
+      // The course ships a START_HERE.md written for someone who downloaded it:
+      // install Python, open a terminal, add it to PATH. That is correct there
+      // and wrong here, and it is the first thing the terminal tells a visitor
+      // to read, so it was sending people away before they started. Swap in a
+      // browser version. The course repos keep theirs untouched.
+      if(msg.startHere){
+        try{
+          const sh = await fetch(msg.startHere);
+          if(sh.ok){
+            py.FS.writeFile(ROOT + '/START_HERE.md', (await sh.text())
+              .replaceAll('{{TITLE}}', msg.title || '')
+              .replaceAll('{{PKG}}', msg.pkg || '')
+              .replaceAll('{{FIRST}}', msg.first || ''));
+          }
+        }catch(err){
+          console.warn('browser START_HERE unavailable:', err.message);
+        }
+      }
       await py.runPythonAsync(PRELUDE(ROOT));
 
       // urllib opens raw TCP sockets, which WASM does not have, so week 9 of
