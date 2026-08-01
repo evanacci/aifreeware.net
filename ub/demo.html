@@ -51,7 +51,13 @@
       search: { placeholder: 'Search', action: '#q={q}', width: 130 },
       status: { url: '/utilbar.js', label: 'Demo API', every: 15000 },   // pings a 200 -> shows Online
       extras: [ { html: '<a id="acct" class="ub-link" href="#account">Account</a>' } ],
-      signin: { label: 'Sign in', href: '#signin' }
+      signin: {
+        label: 'Sign in',
+        forgotHref: '#forgot',
+        onSubmit: function (creds, ui) {   // your auth goes here; the demo just echoes
+          ui.message(creds.email ? 'Demo only — ' + creds.email + ' would sign in.' : 'Enter an email.');
+        }
+      }
     };
     // a site paints its own account state once the bar exists
     document.addEventListener('utilbar:ready', function () {
@@ -59,13 +65,14 @@
     });
   </script>
 
-  <!-- 2) Frame + theme, then only the pieces this site wants. -->
-  <script src="/theme.js" defer></script>
+  <!-- 2) Colour engine loads SYNC (no defer) so the colour is set before paint; pieces defer. -->
+  <script src="/theme.js"></script>
   <script src="/utilbar.js" defer></script>
   <script src="/utilbar-colour.js" defer></script>
   <script src="/utilbar-language.js" defer></script>
   <script src="/utilbar-search.js" defer></script>
   <script src="/utilbar-status.js" defer></script>
+  <script src="/utilbar-signin.js" defer></script>
 
   <main>
     <h1>A bar built from <span class="accent">snap-in pieces</span>.</h1>

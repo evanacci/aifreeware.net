@@ -7,14 +7,26 @@
   var cfg = (window.UtilBar && window.UtilBar.colour) || null;
   if (!cfg || !cfg.palette || !cfg.palette.length) return;      // no colour config -> engine idle
   var CW = cfg.palette, VAR = cfg.accentVar || '--accent', STORE = cfg.store || 'ub-cw', ICON = cfg.icon || '';
+  var INK_DARK = cfg.inkDark || '#160f16', INK_LIGHT = cfg.inkLight || '#ffffff';   // text-on-accent, overridable per site
   var iconFor = function (n) { return ICON ? ICON.replace('{name}', n) : ''; };
   var idx = function (n) { for (var i = 0; i < CW.length; i++) if (CW[i][0] === n) return i; return -1; };
   var dk = function (x, f) { var s = x.slice(1), a = parseInt(s.slice(0, 2), 16), b = parseInt(s.slice(2, 4), 16), d = parseInt(s.slice(4, 6), 16);
     function p(v) { return ('0' + Math.max(0, Math.round(v * (1 - f))).toString(16)).slice(-2); } return '#' + p(a) + p(b) + p(d); };
   var on = function (x) { var s = x.slice(1), a = parseInt(s.slice(0, 2), 16), b = parseInt(s.slice(2, 4), 16), d = parseInt(s.slice(4, 6), 16);
-    return (0.2126 * a + 0.7152 * b + 0.0722 * d) / 255 > 0.6 ? '#160f16' : '#ffffff'; };
+    return (0.2126 * a + 0.7152 * b + 0.0722 * d) / 255 > 0.6 ? INK_DARK : INK_LIGHT; };
   var saved = function () { try { var v = localStorage.getItem(STORE); return (v && idx(v) >= 0) ? v : null; } catch (e) { return null; } };
-  var current = saved() || CW[0][0];
+
+  // Per-page colour: only when the site gives a `paths` map. No map -> one colour (CW[0]).
+  // With a map: a curated path wins; unmapped paths fall to a stable hash. A saved pick overrides all.
+  function pageDefault() {
+    if (!cfg.paths) return CW[0][0];
+    var path = (location.pathname || '/').replace(/\/+$/, '') || '/';
+    var name = cfg.paths[path];
+    if (name && idx(name) >= 0) return name;
+    var h = 2166136261; for (var i = 0; i < path.length; i++) { h ^= path.charCodeAt(i); h = (h * 16777619) >>> 0; }
+    return CW[h % CW.length][0];
+  }
+  var current = saved() || pageDefault();
 
   function apply(name) {
     var i = idx(name); if (i < 0) i = 0;
@@ -23,6 +35,7 @@
     r.style.setProperty('--ub-accent', c[1]);             // internal — the bar + pieces read this
     r.style.setProperty('--ub-accent-deep', dk(c[1], .28));
     r.style.setProperty('--ub-on-accent', on(c[1]));
+    r.style.setProperty('--on-accent', on(c[1]));         // site-facing alias (demo/README use this)
     r.style.setProperty('--ub-accent-ombre', 'linear-gradient(180deg,' + (c[2] || c[1]) + ' 0%,' + c[1] + ' 52%,' + (c[3] || dk(c[1], .5)) + ' 100%)');
     window.__UBCW = { name: c[0], accent: c[1], iconUrl: url };
     if (url) { try { new Image().src = url; } catch (e) {} }
@@ -111,7 +124,7 @@
 
     // frame built-ins — high order weights keep them to the right of the pieces
     (UB.extras || []).forEach(function (e) { UB.mount('right', e.html ? e.html : '<a class="ub-link" href="' + UB.esc(e.href || '#') + '">' + UB.esc(e.label || '') + '</a>', 'extras'); });
-    if (UB.signin) UB.mount('right', '<a class="ub-link ub-signin" href="' + UB.esc(UB.signin.href) + '">' + UB.esc(UB.signin.label || 'Sign in') + '</a>', 'signin');
+    if (UB.signin && !UB._signinClaimed) UB.mount('right', '<a class="ub-link ub-signin" href="' + UB.esc(UB.signin.href || '#') + '">' + UB.esc(UB.signin.label || 'Sign in') + '</a>', 'signin');   // utilbar-signin.js, if included, claims this
     if (!left.children.length) UB.mount('left', '<a class="ub-link" href="' + UB.esc(UB.home || '/') + '">' + UB.esc(UB.brand || 'Home') + '</a>');
 
     // one close-on-outside handler for every dropdown in the bar
@@ -319,5 +332,85 @@
         .then(function (r) { paint(r.ok); })
         .catch(function () { paint(false); });
     }, cfg.every || 30000);
+  });
+})();
+/*!
+ * utilbar-signin.js — Sign in, inside the bar. Renders a dropdown panel (so a click never
+ * leaves the page and never loses the bar/tuner). Needs utilbar.js. Config:
+ *   signin: {
+ *     label: 'Sign in',
+ *     onSubmit: function (creds, ui) { … },   // creds = {email, password};
+ *                                             //   ui.message('…'), ui.close() provided
+ *     action: '/api/auth/sign-in',            // …or let the default form POST here, or
+ *     panel: '<form>…</form>',                // …supply your own panel markup (wire it on
+ *                                             //   utilbar:ready), or
+ *     href: '/admin',                         // …nothing above -> a plain navigating link.
+ *     forgotHref: '/forgot'                   // optional link under the default form
+ *   }
+ * Auth is yours: the piece collects the fields and hands them to your onSubmit/action —
+ * it never sends credentials anywhere itself.
+ */
+(function () {
+  var UB = window.UtilBar; if (!UB) return;
+  var cfg = UB.signin; if (!cfg) return;
+  UB._signinClaimed = true;                          // frame: don't also add your own link
+  var esc = UB.esc;
+  var wantsPanel = cfg.panel || cfg.onSubmit || cfg.action;
+
+  function dropStaleLink() { var s = document.querySelector('a.ub-signin'); if (s) s.remove(); }  // frame's fallback, if it beat us
+
+  if (!wantsPanel) {                                 // plain navigating link
+    UB.ready(function () { dropStaleLink(); UB.mount('right', '<a class="ub-link ub-signin" href="' + esc(cfg.href || '#') + '">' + esc(cfg.label || 'Sign in') + '</a>', 'signin'); });
+    return;
+  }
+
+  UB.css([
+    '.ub-si-panel{position:absolute;top:calc(100% + 9px);right:0;width:252px;background:var(--ub-surface,#1A1824);border:1px solid var(--ub-line,#2C2939);border-radius:13px;padding:15px;box-shadow:0 18px 44px -14px rgba(0,0,0,.75);z-index:30}',
+    '.ub-si-form{display:flex;flex-direction:column;gap:11px}',
+    '.ub-si-field{display:flex;flex-direction:column;gap:5px}',
+    '.ub-si-field span{font-family:var(--ub-mono,Menlo,monospace);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ub-muted,#6C6880)}',
+    '.ub-si-field input{background:var(--ub-ink-2,#14121B);border:1px solid var(--ub-line,#2C2939);border-radius:8px;color:var(--ub-text,#ECEAF2);font-family:var(--ub-sans,sans-serif);font-size:13.5px;padding:9px 11px;outline:0;transition:border-color .2s}',
+    '.ub-si-field input:focus{border-color:var(--ub-accent,#FF8DC5)}',
+    '.ub-si-btn{margin-top:2px;background:var(--ub-accent,#FF8DC5);color:var(--ub-on-accent,#160f16);border:0;border-radius:8px;font-family:var(--ub-sans,sans-serif);font-weight:700;font-size:13.5px;padding:10px;cursor:pointer;transition:filter .2s}',
+    '.ub-si-btn:hover{filter:brightness(1.08)}',
+    '.ub-si-forgot{font-family:var(--ub-sans,sans-serif);font-size:12px;color:var(--ub-muted,#6C6880);text-decoration:none;text-align:center}',
+    '.ub-si-forgot:hover{color:var(--ub-accent,#FF8DC5)}',
+    '.ub-si-msg{margin:0;font-family:var(--ub-sans,sans-serif);font-size:12px;line-height:1.4;color:#FF6B6B}',
+    '.ub-si-msg:empty{display:none}'
+  ].join(''));
+
+  var custom = !!cfg.panel;
+  var body = cfg.panel || (
+    '<form class="ub-si-form"' + (cfg.action && !cfg.onSubmit ? ' method="post" action="' + esc(cfg.action) + '"' : '') + '>' +
+      '<label class="ub-si-field"><span>Email</span><input type="email" name="email" autocomplete="email" required /></label>' +
+      '<label class="ub-si-field"><span>Password</span><input type="password" name="password" autocomplete="current-password" required /></label>' +
+      '<button type="submit" class="ub-si-btn">' + esc(cfg.label || 'Sign in') + '</button>' +
+      (cfg.forgotHref ? '<a class="ub-si-forgot" href="' + esc(cfg.forgotHref) + '">Forgot password?</a>' : '') +
+      '<p class="ub-si-msg" role="alert"></p>' +
+    '</form>'
+  );
+
+  var html =
+    '<details class="ub-sel ub-sisel"><summary class="ub-link ub-signin" aria-label="Sign in">' + esc(cfg.label || 'Sign in') +
+      '&nbsp;<span class="ub-chev" aria-hidden="true">&#9662;</span></summary>' +
+    '<div class="ub-si-panel" role="dialog" aria-label="Sign in">' + body + '</div></details>';
+
+  UB.ready(function () {
+    dropStaleLink();
+    UB.mount('right', html, 'signin');
+    if (custom) return;                              // site wires its own panel via utilbar:ready
+    var form = document.querySelector('.ub-si-panel form'); if (!form) return;
+    var msg = form.querySelector('.ub-si-msg');
+    var ui = {
+      message: function (t) { if (msg) msg.textContent = t || ''; },
+      close: function () { var d = form.closest('details'); if (d) d.removeAttribute('open'); }
+    };
+    if (typeof cfg.onSubmit === 'function') {
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        cfg.onSubmit({ email: (form.email || {}).value || '', password: (form.password || {}).value || '' }, ui);
+      });
+    }
+    // else: cfg.action is on the form -> the browser POSTs it natively.
   });
 })();

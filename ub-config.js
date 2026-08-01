@@ -27,6 +27,10 @@ window.UtilBar = {
     store: 'aifw-cw',
     /* The tuner preview line. The module accents the last entry only. */
     specimen: ['Everything', 'runs', 'on', 'your', 'own', 'machine.'],
+    /* Ink for text sitting ON a light accent. The engine's default is CrumbProof's
+       #160f16; this is aifreeware's own ground. Near-invisible either way on a dark
+       page, but it should be this site's colour, not the one it inherited. */
+    inkDark: '#171717',
 
     /* [name, accent, rampLight, rampDark].
        Column 2 is aifreeware's own table, unchanged. Columns 3 and 4 are the

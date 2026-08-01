@@ -70,7 +70,7 @@
 
     // frame built-ins — high order weights keep them to the right of the pieces
     (UB.extras || []).forEach(function (e) { UB.mount('right', e.html ? e.html : '<a class="ub-link" href="' + UB.esc(e.href || '#') + '">' + UB.esc(e.label || '') + '</a>', 'extras'); });
-    if (UB.signin) UB.mount('right', '<a class="ub-link ub-signin" href="' + UB.esc(UB.signin.href) + '">' + UB.esc(UB.signin.label || 'Sign in') + '</a>', 'signin');
+    if (UB.signin && !UB._signinClaimed) UB.mount('right', '<a class="ub-link ub-signin" href="' + UB.esc(UB.signin.href || '#') + '">' + UB.esc(UB.signin.label || 'Sign in') + '</a>', 'signin');   // utilbar-signin.js, if included, claims this
     if (!left.children.length) UB.mount('left', '<a class="ub-link" href="' + UB.esc(UB.home || '/') + '">' + UB.esc(UB.brand || 'Home') + '</a>');
 
     // one close-on-outside handler for every dropdown in the bar
