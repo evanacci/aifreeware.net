@@ -11,7 +11,7 @@
  * Deferring either one means the default colourway paints first and the saved
  * pick snaps in after, which is the tell of a cheap picker.
  *
- * Loaded on all four pages. /run/ takes the theme engine only, so on that page
+ * Loaded on every page. /run/ takes the theme engine only, so on that page
  * everything except `colour` is inert: the terminal stays immersive and offers
  * no chrome to change the colour, but it still honours a saved one.
  */
@@ -62,12 +62,13 @@ window.UtilBar = {
 
   /* Sign in without leaving the page. utilbar-signin.js renders the panel and
      collects the fields; it never sends credentials anywhere itself, so the auth
-     below is ours. /login/ still exists for anyone who lands on it directly, and
-     forgotHref points at it because that page owns the reset request. */
+     below is ours. /forgot/ is the only auth page left: signing in happens here in
+     the bar, so that page only sends the reset link. href is the same, as the
+     fallback for a browser that renders the summary as a plain link. */
   signin: {
     label: 'Sign in',
-    href: '/login/',
-    forgotHref: '/login/',
+    href: '/forgot/',
+    forgotHref: '/forgot/',
     onSubmit: function (creds, ui) {
       if (!creds.email || !creds.password) return ui.message('Email and password, please.');
       ui.message('');
