@@ -60,7 +60,36 @@ window.UtilBar = {
     { html: '<a id="aifwAcct" class="ub-link" href="/run/" style="display:none"></a>' }
   ],
 
-  signin: { label: 'Sign in', href: '/login/' }
+  /* Sign in without leaving the page. utilbar-signin.js renders the panel and
+     collects the fields; it never sends credentials anywhere itself, so the auth
+     below is ours. /login/ still exists for anyone who lands on it directly, and
+     forgotHref points at it because that page owns the reset request. */
+  signin: {
+    label: 'Sign in',
+    href: '/login/',
+    forgotHref: '/login/',
+    onSubmit: function (creds, ui) {
+      if (!creds.email || !creds.password) return ui.message('Email and password, please.');
+      ui.message('');
+      fetch('/api/auth/sign-in/email', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ email: creds.email, password: creds.password })
+      })
+        .then(function (r) { return r.json().catch(function () { return null; }).then(function (d) { return { r: r, d: d }; }); })
+        .then(function (x) {
+          if (x.r.ok) { ui.close(); location.reload(); return; }
+          var said = x.d && (x.d.message || x.d.error);
+          ui.message(
+            /invalid|credential|password/i.test(said || '') ? 'That email and password do not match.'
+            : x.r.status >= 500 ? 'The sign-in service is not responding. Try again in a moment.'
+            : said || 'Could not sign you in.'
+          );
+        })
+        .catch(function () { ui.message('Could not reach the sign-in service.'); });
+    }
+  }
 };
 
 /* The module owns the bar and gives us the slot plus the utilbar:ready signal;

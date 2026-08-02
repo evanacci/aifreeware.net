@@ -38,6 +38,17 @@
        called it --on-accent, so alias it the same way --lime is aliased. */
     --on-accent:var(--ub-on-accent,var(--bg));
     /* Line the bar's inner wrap up with .wrap below. */
+    /* The module's own tokens. It falls back to CrumbProof's purple palette when a
+       host defines none, so these are aifreeware's neutrals. Accent tokens are
+       left alone: the engine sets those per colourway. */
+    --ub-surface:#1c1c1c;
+    --ub-ink-2:#141414;
+    --ub-line:rgba(255,255,255,.12);
+    --ub-line-soft:rgba(255,255,255,.07);
+    --ub-text:#e8e8e8;
+    --ub-muted:#6d6d6d;
+    --ub-mono:var(--mono);
+    --ub-sans:var(--mono);
     --ub-max:960px;
     --ub-pad:5vw;
     --gray:#8a8a8a;
@@ -276,6 +287,7 @@
      already read by /ub/theme.js in the head. -->
 <script src="/ub/utilbar.js" defer></script>
 <script src="/ub/utilbar-colour.js" defer></script>
+<script src="/ub/utilbar-signin.js" defer></script>
 
 <div class="wrap">
 
