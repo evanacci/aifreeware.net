@@ -80,7 +80,18 @@
     try { document.dispatchEvent(new CustomEvent('utilbar:ready', { detail: { bar: bar } })); } catch (e) {}
   }
 
-  // Defer to let same-tick piece scripts register their ready() callbacks first.
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', build);
-  else setTimeout(build, 0);
+  // Wait for every piece to have registered its ready() callback before building.
+  //
+  // While deferred scripts are running, readyState is already 'interactive' but
+  // DOMContentLoaded has not fired, so the old 'loading' test fell through to
+  // setTimeout(0). Deferred scripts are separate tasks, so that timer can fire
+  // in the gap while a later piece is still downloading: the frame then builds
+  // with an empty left side and drops its "Home" fallback in, and the cookie
+  // arrives after. It only showed on a cold load, which is what made it look
+  // like a config problem.
+  if (document.readyState === 'loading' || document.readyState === 'interactive') {
+    document.addEventListener('DOMContentLoaded', build);
+  } else {
+    setTimeout(build, 0);   // already past DOMContentLoaded, nothing left to wait for
+  }
 })();
