@@ -65,28 +65,53 @@ window.UtilBar = {
      below is ours. /forgot/ is the only auth page left: signing in happens here in
      the bar, so that page only sends the reset link. href is the same, as the
      fallback for a browser that renders the summary as a plain link. */
+  /* One door, the way thenorthface.com does it: the control says sign in OR
+     create, and nobody has to know which they are doing. There is no lookup
+     endpoint on purpose, because one would let anyone discover who has an
+     account, which is exactly what the reset flow refuses to leak. Instead:
+     try to sign in, and if that fails try to create. Better Auth answers 401
+     identically for a wrong password and an unknown address, so the attempt
+     itself gives nothing away; only a 422 from the create step tells us the
+     account was already there, which means the password was simply wrong. */
   signin: {
-    label: 'Sign in',
+    /* The module uses this for the bar control and the button. It has to name
+       both jobs, or someone without an account reads "Sign in" and leaves. */
+    label: 'Sign in / sign up',
     href: '/forgot/',
     forgotHref: '/forgot/',
     onSubmit: function (creds, ui) {
-      if (!creds.email || !creds.password) return ui.message('Email and password, please.');
-      ui.message('');
-      fetch('/api/auth/sign-in/email', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify({ email: creds.email, password: creds.password })
-      })
-        .then(function (r) { return r.json().catch(function () { return null; }).then(function (d) { return { r: r, d: d }; }); })
+      var email = (creds.email || '').trim(), password = creds.password || '';
+      if (!email || !password) return ui.message('Email and password, please.');
+      if (password.length < 8) return ui.message('Passwords are at least 8 characters.');
+      ui.message('One moment.');
+
+      var post = function (path, body) {
+        return fetch('/api/auth' + path, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify(body)
+        }).then(function (r) {
+          return r.json().catch(function () { return null; }).then(function (d) { return { r: r, d: d }; });
+        });
+      };
+      var done = function () { ui.close(); location.reload(); };
+
+      post('/sign-in/email', { email: email, password: password })
         .then(function (x) {
-          if (x.r.ok) { ui.close(); location.reload(); return; }
-          var said = x.d && (x.d.message || x.d.error);
-          ui.message(
-            /invalid|credential|password/i.test(said || '') ? 'That email and password do not match.'
-            : x.r.status >= 500 ? 'The sign-in service is not responding. Try again in a moment.'
-            : said || 'Could not sign you in.'
-          );
+          if (x.r.ok) return done();
+          if (x.r.status >= 500) return ui.message('The sign-in service is not responding. Try again in a moment.');
+
+          // Either no such account, or the password is wrong. Creating tells us which.
+          return post('/sign-up/email', { email: email, password: password, name: email.split('@')[0] })
+            .then(function (y) {
+              if (y.r.ok) return done();
+              var code = (y.d && y.d.code) || '';
+              if (/ALREADY_EXISTS/i.test(code)) return ui.message('That password does not match this email.');
+              var said = y.d && (y.d.message || y.d.error);
+              if (/valid email/i.test(said || '')) return ui.message('That does not look like an email address.');
+              return ui.message(said || 'Could not sign you in.');
+            });
         })
         .catch(function () { ui.message('Could not reach the sign-in service.'); });
     }
